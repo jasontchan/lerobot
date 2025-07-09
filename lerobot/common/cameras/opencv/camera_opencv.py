@@ -125,7 +125,10 @@ class OpenCVCamera(Camera):
 
         if self.height and self.width:
             self.capture_width, self.capture_height = self.width, self.height
-            if self.rotation in [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
+            if self.rotation in [
+                cv2.ROTATE_90_CLOCKWISE,
+                cv2.ROTATE_90_COUNTERCLOCKWISE,
+            ]:
                 self.capture_width, self.capture_height = self.height, self.width
 
     def __str__(self) -> str:
@@ -134,7 +137,10 @@ class OpenCVCamera(Camera):
     @property
     def is_connected(self) -> bool:
         """Checks if the camera is currently connected and opened."""
-        return isinstance(self.videocapture, cv2.VideoCapture) and self.videocapture.isOpened()
+        return (
+            isinstance(self.videocapture, cv2.VideoCapture)
+            and self.videocapture.isOpened()
+        )
 
     def connect(self, warmup: bool = True):
         """
@@ -194,7 +200,9 @@ class OpenCVCamera(Camera):
                                      to configure settings.
         """
         if not self.is_connected:
-            raise DeviceNotConnectedError(f"Cannot configure settings for {self} as it is not connected.")
+            raise DeviceNotConnectedError(
+                f"Cannot configure settings for {self} as it is not connected."
+            )
 
         if self.fps is None:
             self.fps = self.videocapture.get(cv2.CAP_PROP_FPS)
@@ -207,7 +215,10 @@ class OpenCVCamera(Camera):
         if self.width is None or self.height is None:
             self.width, self.height = default_width, default_height
             self.capture_width, self.capture_height = default_width, default_height
-            if self.rotation in [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
+            if self.rotation in [
+                cv2.ROTATE_90_CLOCKWISE,
+                cv2.ROTATE_90_COUNTERCLOCKWISE,
+            ]:
                 self.width, self.height = default_height, default_width
                 self.capture_width, self.capture_height = default_width, default_height
         else:
@@ -225,8 +236,12 @@ class OpenCVCamera(Camera):
     def _validate_width_and_height(self) -> None:
         """Validates and sets the camera's frame capture width and height."""
 
-        width_success = self.videocapture.set(cv2.CAP_PROP_FRAME_WIDTH, float(self.capture_width))
-        height_success = self.videocapture.set(cv2.CAP_PROP_FRAME_HEIGHT, float(self.capture_height))
+        width_success = self.videocapture.set(
+            cv2.CAP_PROP_FRAME_WIDTH, float(self.capture_width)
+        )
+        height_success = self.videocapture.set(
+            cv2.CAP_PROP_FRAME_HEIGHT, float(self.capture_height)
+        )
 
         actual_width = int(round(self.videocapture.get(cv2.CAP_PROP_FRAME_WIDTH)))
         if not width_success or self.capture_width != actual_width:
@@ -326,7 +341,9 @@ class OpenCVCamera(Camera):
 
         return processed_frame
 
-    def _postprocess_image(self, image: np.ndarray, color_mode: ColorMode | None = None) -> np.ndarray:
+    def _postprocess_image(
+        self, image: np.ndarray, color_mode: ColorMode | None = None
+    ) -> np.ndarray:
         """
         Applies color conversion, dimension validation, and rotation to a raw frame.
 
@@ -358,7 +375,9 @@ class OpenCVCamera(Camera):
             )
 
         if c != 3:
-            raise RuntimeError(f"{self} frame channels={c} do not match expected 3 channels (RGB/BGR).")
+            raise RuntimeError(
+                f"{self} frame channels={c} do not match expected 3 channels (RGB/BGR)."
+            )
 
         processed_image = image
         if requested_color_mode == ColorMode.RGB:
@@ -391,7 +410,9 @@ class OpenCVCamera(Camera):
             except DeviceNotConnectedError:
                 break
             except Exception as e:
-                logger.warning(f"Error reading frame in background thread for {self}: {e}")
+                logger.warning(
+                    f"Error reading frame in background thread for {self}: {e}"
+                )
 
     def _start_read_thread(self) -> None:
         """Starts or restarts the background read thread if it's not running."""
@@ -416,7 +437,7 @@ class OpenCVCamera(Camera):
         self.thread = None
         self.stop_event = None
 
-    def async_read(self, timeout_ms: float = 200) -> np.ndarray:
+    def async_read(self, timeout_ms: float = 1000) -> np.ndarray:
         """
         Reads the latest available frame asynchronously.
 
@@ -455,7 +476,9 @@ class OpenCVCamera(Camera):
             self.new_frame_event.clear()
 
         if frame is None:
-            raise RuntimeError(f"Internal error: Event set but no frame available for {self}.")
+            raise RuntimeError(
+                f"Internal error: Event set but no frame available for {self}."
+            )
 
         return frame
 
