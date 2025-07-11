@@ -1,3 +1,4 @@
+import multiprocessing
 import queue
 from ..emg import EMG
 from pyomyo.src.pyomyo.pyomyo import Myo, emg_mode
@@ -17,7 +18,7 @@ class EMGMyo(EMG):
         self.tty = None
         self.q = queue.Queue()
 
-    def connect(self):
+    def connection_worker(self):
         """Connect to the Myo armband.
         This method is meant to run in a separate thread to continously read EMG data.
         """
@@ -41,6 +42,12 @@ class EMGMyo(EMG):
         while True:
             m.run()
         print("Worker Stopped")
+
+    def connect(self):
+        p = multiprocessing.Process(
+            target=self.connection_worker,
+        )
+        p.start()
 
     def read(self):
         """Read a single EMG data frame."""
