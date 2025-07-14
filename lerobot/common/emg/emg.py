@@ -1,6 +1,5 @@
 import abc
-from typing import Any, Dict, List
-import numpy as np
+from typing import Any, Dict, List, Tuple
 
 
 class EMG(abc.ABC):
@@ -36,10 +35,10 @@ class EMG(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def read(self) -> np.ndarray:
+    def read(self) -> Tuple[int, ...]:
         """Capture and return a single EMG data frame at a single time point
 
         Returns:
-            np.ndarray: Captured EMG data as a numpy array.
+            Tuple[int, ...]: Captured EMG data as a tuple of ints.
         """
         pass

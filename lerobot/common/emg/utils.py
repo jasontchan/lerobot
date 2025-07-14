@@ -1,5 +1,5 @@
 from lerobot.common.emg.emg import EMG
-from lerobot.common.emg.config import EMGConfig
+from lerobot.common.emg.configs import EMGConfig
 
 
 def make_emg_streams_from_configs(emg_configs: dict[str, EMGConfig]) -> dict[str, EMG]:

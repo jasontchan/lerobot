@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..config import EMGConfig
+from ..configs import EMGConfig
 
 
 @EMGConfig.register_subclass("myo")

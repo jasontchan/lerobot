@@ -17,6 +17,7 @@
 from dataclasses import dataclass, field
 
 from lerobot.common.cameras import CameraConfig
+from lerobot.common.emg import EMGConfig
 
 from ..config import RobotConfig
 
@@ -36,6 +37,9 @@ class SO101FollowerConfig(RobotConfig):
 
     # cameras
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
+
+    # emg bands
+    emgs: dict[str, EMGConfig] = field(default_factory=dict)
 
     # Set to `True` for backward compatibility with previous policies/dataset
     use_degrees: bool = False
