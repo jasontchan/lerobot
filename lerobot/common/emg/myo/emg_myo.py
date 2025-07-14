@@ -31,8 +31,8 @@ class EMGMyo(EMG):
         m.connect(input_address=self.mac)
 
         def add_to_queue(emg, movement):
-            curr_time = (time.time(),)
-            emg = emg + curr_time
+            # curr_time = (time.time(),)
+            # emg = emg + curr_time
             self.curr_values = emg
 
         m.add_emg_handler(add_to_queue)
