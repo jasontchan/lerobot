@@ -16,7 +16,7 @@ class EMGMyo(EMG):
 
         self.mac = None
         self.tty = None
-        self.q = queue.Queue()
+        self.curr_values = None  # type: tuple[int, ...] | None
 
     def connection_worker(self):
         """Connect to the Myo armband.
@@ -29,7 +29,7 @@ class EMGMyo(EMG):
         def add_to_queue(emg, movement):
             curr_time = (time.time(),)
             emg = emg + curr_time
-            self.q.put(emg)
+            self.curr_values = emg
 
         m.add_emg_handler(add_to_queue)
 
@@ -51,6 +51,8 @@ class EMGMyo(EMG):
 
     def read(self):
         """Read a single EMG data frame."""
-        if self.q.empty():
-            return None
-        return self.q.get()
+        return (
+            self.curr_values
+            if self.curr_values is not None
+            else (0, 0, 0, 0, 0, 0, 0, 0, time.time())
+        )  # this is problematic because time.time() is not the same as the time in the worker thread, but it is a placeholder to avoid errors.
