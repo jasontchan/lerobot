@@ -42,3 +42,12 @@ class EMG(abc.ABC):
             Tuple[int, ...]: Captured EMG data as a tuple of ints.
         """
         pass
+
+    @abc.abstractmethod
+    def disconnect(self) -> None:
+        """Disconnect the EMG device.
+
+        This method should handle any necessary cleanup or shutdown procedures
+        when the EMG device is no longer needed.
+        """
+        pass

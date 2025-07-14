@@ -14,6 +14,8 @@ class EMGMyo(EMG):
 
         super().__init__(config)
 
+        self.myo = None
+
         self.mac = config.mac
         self.tty = config.tty
         self.position = config.position
@@ -25,6 +27,7 @@ class EMGMyo(EMG):
         """
         print("MAC", self.mac, flush=True)
         m = Myo(mode=MODE, tty=self.tty)
+        self.myo = m
         m.connect(input_address=self.mac)
 
         def add_to_queue(emg, movement):
@@ -50,6 +53,10 @@ class EMGMyo(EMG):
         )
         p.start()
 
+    def is_connected(self):
+        """Check if the Myo armband is connected."""
+        return self.myo is not None and self.myo.conn is not None
+
     def read(self):
         """Read a single EMG data frame."""
         return (
@@ -57,3 +64,9 @@ class EMGMyo(EMG):
             if self.curr_values is not None
             else (0, 0, 0, 0, 0, 0, 0, 0, time.time())
         )  # this is problematic because time.time() is not the same as the time in the worker thread, but it is a placeholder to avoid errors.
+
+    def disconnect(self):
+        """Disconnect the Myo armband."""
+        print("Disconnecting Myo EMG device...")
+        self.myo.disconnect()
+        print("Myo EMG device disconnected.")
