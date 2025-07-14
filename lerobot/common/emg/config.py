@@ -8,6 +8,7 @@ import draccus
 class EMGConfig(draccus.ChoiceRegistry, abc.ABC):
     sampling_rate: int | None = None
     channels: int | None = None
+    position: str | None = None
 
     @property
     def type(self) -> str:

@@ -13,6 +13,7 @@ class EMG(abc.ABC):
         """
         self.sampling_rate = config.get("sampling_rate", 200)
         self.channels = config.get("channels", 8)
+        self.position = config.get("position", "unknown")
         self.connected = False
 
     @property

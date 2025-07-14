@@ -14,8 +14,9 @@ class EMGMyo(EMG):
 
         super().__init__(config)
 
-        self.mac = None
-        self.tty = None
+        self.mac = config.mac
+        self.tty = config.tty
+        self.position = config.position
         self.curr_values = None  # type: tuple[int, ...] | None
 
     def connection_worker(self):
