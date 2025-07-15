@@ -24,7 +24,9 @@ from .configs import CameraConfig, Cv2Rotation
 IndexOrPath: TypeAlias = int | Path
 
 
-def make_cameras_from_configs(camera_configs: dict[str, CameraConfig]) -> dict[str, Camera]:
+def make_cameras_from_configs(
+    camera_configs: dict[str, CameraConfig],
+) -> dict[str, Camera]:
     cameras = {}
 
     for key, cfg in camera_configs.items():
@@ -40,6 +42,7 @@ def make_cameras_from_configs(camera_configs: dict[str, CameraConfig]) -> dict[s
         else:
             raise ValueError(f"The motor type '{cfg.type}' is not valid.")
 
+    print("Cameras created:", cameras)
     return cameras
 
 

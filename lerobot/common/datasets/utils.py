@@ -428,10 +428,14 @@ def hw_to_dataset_features(
     features = {}
     joint_fts = {key: ftype for key, ftype in hw_features.items() if ftype is float}
     cam_fts = {
-        key: shape for key, shape in hw_features.items() if isinstance(shape, tuple)
+        key: shape
+        for key, shape in hw_features.items()
+        if isinstance(shape, tuple) and len(shape) == 3
     }
     emg_fts = {
-        key: shape for key, shape in hw_features.items() if isinstance(shape, tuple)
+        key: shape
+        for key, shape in hw_features.items()
+        if isinstance(shape, tuple) and len(shape) == 1
     }
 
     if joint_fts and prefix == "action":
@@ -457,7 +461,7 @@ def hw_to_dataset_features(
 
     for key, shape in emg_fts.items():
         features[f"{prefix}.emg.{key}"] = {
-            "dtype": "tuple",
+            "dtype": "int64",
             "shape": shape,
             "names": ["channels"],  # checkthis
         }
@@ -479,8 +483,10 @@ def build_dataset_frame(
             )
         elif ft["dtype"] in ["image", "video"]:
             frame[key] = values[key.removeprefix(f"{prefix}.images.")]
-        elif ft["dtype"] == "tuple":  # emg
-            frame[key] = np.array(values["channels"])  # checkthis
+        elif ft["dtype"] == "int64":  # emg
+            frame[key] = np.array(
+                values[key.removeprefix(f"{prefix}.emg.")]
+            )  # checkthis
 
     return frame
 
@@ -510,7 +516,7 @@ def dataset_to_policy_features(features: dict[str, dict]) -> dict[str, PolicyFea
             # Backward compatibility for "channel" which is an error introduced in LeRobotDataset v2.0 for ported datasets.
             if names[2] in ["channel", "channels"]:  # (h, w, c) -> (c, h, w)
                 shape = (shape[2], shape[0], shape[1])
-        elif ft["dtype"] == "tuple":  # checkthis
+        elif ft["dtype"] == "int64":  # checkthis
             type = FeatureType.EMG
         elif key == "observation.environment_state":
             type = FeatureType.ENV

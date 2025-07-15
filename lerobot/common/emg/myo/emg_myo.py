@@ -1,7 +1,12 @@
-import multiprocessing
+import threading
 import queue
 from ..emg import EMG
+import sys
+
+sys.path.insert(0, "/Users/jasonchan/Code/lerobot")
 from pyomyo.src.pyomyo.pyomyo import Myo, emg_mode
+from .configuration_myo import MyoEMGConfig
+from ..configs import EMGConfig
 import time
 
 MODE = emg_mode.RAW
@@ -16,7 +21,7 @@ class EMGMyo(EMG):
 
         self.myo = None
 
-        self.mac = config.mac
+        self.mac = list(map(int, config.mac.split(":")))
         self.tty = config.tty
         self.position = config.position
         self.curr_values = None  # type: tuple[int, ...] | None
@@ -29,6 +34,7 @@ class EMGMyo(EMG):
         m = Myo(mode=MODE, tty=self.tty)
         self.myo = m
         m.connect(input_address=self.mac)
+        print("conn status in connection worker:", m.conn, flush=True)
 
         def add_to_queue(emg, movement):
             # curr_time = (time.time(),)
@@ -48,14 +54,16 @@ class EMGMyo(EMG):
         print("Worker Stopped")
 
     def connect(self):
-        p = multiprocessing.Process(
-            target=self.connection_worker,
-        )
+        p = threading.Thread(target=self.connection_worker, daemon=True)
         p.start()
 
     def is_connected(self):
         """Check if the Myo armband is connected."""
-        return self.myo is not None and self.myo.conn is not None
+        print(
+            "RESULT OF IS CONNECTED:",
+            self.myo is not None and self.myo.connected,
+        )
+        return self.myo is not None and self.myo.connected
 
     def read(self):
         """Read a single EMG data frame."""
@@ -65,8 +73,13 @@ class EMGMyo(EMG):
             else (0, 0, 0, 0, 0, 0, 0, 0, time.time())
         )  # this is problematic because time.time() is not the same as the time in the worker thread, but it is a placeholder to avoid errors.
 
+    def __del__(self):
+        print("Disconnecting")
+        self.myo.disconnect()
+        print("Disconnected")
+
     def disconnect(self):
         """Disconnect the Myo armband."""
         print("Disconnecting Myo EMG device...")
-        self.myo.disconnect()
+        # self.myo.disconnect()
         print("Myo EMG device disconnected.")

@@ -10,9 +10,9 @@ class EMG(abc.ABC):
         Args:
             config: Configuration dictionary containing device settings.
         """
-        self.sampling_rate = config.get("sampling_rate", 200)
-        self.channels = config.get("channels", 8)
-        self.position = config.get("position", "unknown")
+        self.sampling_rate = config.sampling_rate
+        self.channels = config.channels
+        self.position = config.position
         self.connected = False
 
     @property

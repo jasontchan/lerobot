@@ -248,6 +248,7 @@ class Myo(object):
         self.battery_handlers = []
         self.mode = mode
         self.label = None
+        self.connected = False
 
     def detect_tty(self):
         for p in comports():
@@ -364,6 +365,7 @@ class Myo(object):
 
             # enable battery notifications
             self.write_attr(0x12, b"\x01\x10")
+        self.connected = True
 
         # add data handlers
         def handle_data(p):

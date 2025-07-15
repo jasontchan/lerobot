@@ -13,4 +13,5 @@ def make_emg_streams_from_configs(emg_configs: dict[str, EMGConfig]) -> dict[str
         else:
             raise ValueError(f"The EMG type '{cfg.type}' is not valid.")
 
+    print("EMG streams created:", emg_streams)
     return emg_streams

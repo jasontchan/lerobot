@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import draccus
 
 
-@dataclass()
+@dataclass(kw_only=True)
 class EMGConfig(draccus.ChoiceRegistry, abc.ABC):
     sampling_rate: int | None = None
     channels: int | None = None

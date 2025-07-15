@@ -79,10 +79,14 @@ class SO101Follower(Robot):
 
     @property
     def _emgs_ft(self) -> dict[str, tuple]:
-        return {emg: (1, self.config.emgs[emg].channels) for emg in self.emgs}
+        return {emg: (self.config.emgs[emg].channels,) for emg in self.emgs}
 
     @cached_property
     def observation_features(self) -> dict[str, type | tuple]:
+        print(
+            "Observation features:",
+            {**self._motors_ft, **self._cameras_ft, **self._emgs_ft},
+        )
         return {**self._motors_ft, **self._cameras_ft, **self._emgs_ft}
 
     @cached_property

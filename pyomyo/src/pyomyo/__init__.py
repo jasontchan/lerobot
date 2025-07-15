@@ -1,1 +1,2 @@
-from pyomyo.pyomyo import *
+# from pyomyo.pyomyo import *
+from pyomyo import *
