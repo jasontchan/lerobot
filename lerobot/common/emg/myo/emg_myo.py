@@ -66,7 +66,7 @@ class EMGMyo(EMG):
         return self.myo is not None and self.myo.connected
 
     def read(self):
-        """Read a single EMG data frame."""
+        """Read the past 200/30 frames of EMG data."""
         return (
             self.curr_values
             if self.curr_values is not None
