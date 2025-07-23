@@ -163,7 +163,13 @@ def load_smolvla(
     state_dict = {k: v for k, v in state_dict.items() if not k.startswith(norm_keys)}
     # print(f"state dict: {list(state_dict.keys())}")
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
-    if not all(key.startswith(norm_keys) or key.startswith(ignore_missing) for key in missing) or unexpected:
+    if (
+        not all(
+            key.startswith(norm_keys) or key.startswith(ignore_missing)
+            for key in missing
+        )
+        or unexpected
+    ):
         raise RuntimeError(
             "SmolVLA %d missing / %d unexpected keys",
             len(missing),
@@ -684,7 +690,7 @@ class VLAFlowMatching(nn.Module):
         self.emg_proj = nn.Linear(
             self.config.max_state_dim,
             self.vlm_with_expert.config.text_config.hidden_size,
-            dtype=torch.float64
+            dtype=torch.float32,
         )
         self.action_in_proj = nn.Linear(
             self.config.max_action_dim, self.vlm_with_expert.expert_hidden_size
