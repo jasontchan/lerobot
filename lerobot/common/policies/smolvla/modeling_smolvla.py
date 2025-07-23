@@ -159,11 +159,11 @@ def load_smolvla(
 
     # HACK(aliberts): to not overwrite normalization parameters as they should come from the dataset
     norm_keys = ("normalize_inputs", "normalize_targets", "unnormalize_outputs")
+    ignore_missing = ("model.emg_proj",)
     state_dict = {k: v for k, v in state_dict.items() if not k.startswith(norm_keys)}
-
+    # print(f"state dict: {list(state_dict.keys())}")
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
-
-    if not all(key.startswith(norm_keys) for key in missing) or unexpected:
+    if not all(key.startswith(norm_keys) or key.startswith(ignore_missing) for key in missing) or unexpected:
         raise RuntimeError(
             "SmolVLA %d missing / %d unexpected keys",
             len(missing),
@@ -599,14 +599,15 @@ class SmolVLAPolicy(PreTrainedPolicy):
 
     def prepare_emg(self, batch):
         """Pad EMG"""
-        emgs = []
+        device = batch[OBS_STATE].device
+        emgs = torch.tensor([], dtype=torch.float32, device=device)
         present_emg_keys = [key for key in self.config.emg_features if key in batch]
         for key in present_emg_keys:
-            emgs.extend(batch[key])
-        emg = pad_vector(
-            emg, self.config.max_state_dim
+            emgs = torch.cat((emgs, batch[key][:, -1, :]), dim=1)
+        emgs = pad_vector(
+            emgs, self.config.max_state_dim
         )  # use the same max len as state
-        return emg
+        return emgs
 
 
 def pad_tensor(tensor, max_len, pad_value=0):
@@ -683,6 +684,7 @@ class VLAFlowMatching(nn.Module):
         self.emg_proj = nn.Linear(
             self.config.max_state_dim,
             self.vlm_with_expert.config.text_config.hidden_size,
+            dtype=torch.float64
         )
         self.action_in_proj = nn.Linear(
             self.config.max_action_dim, self.vlm_with_expert.expert_hidden_size

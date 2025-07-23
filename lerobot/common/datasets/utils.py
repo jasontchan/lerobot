@@ -461,7 +461,7 @@ def hw_to_dataset_features(
 
     for key, shape in emg_fts.items():
         features[f"{prefix}.emg.{key}"] = {
-            "dtype": "int64",
+            "dtype": "float64",
             "shape": shape,
             "names": ["channels"],  # checkthis
         }
@@ -483,7 +483,7 @@ def build_dataset_frame(
             )
         elif ft["dtype"] in ["image", "video"]:
             frame[key] = values[key.removeprefix(f"{prefix}.images.")]
-        elif ft["dtype"] == "int64":  # emg
+        elif ft["dtype"] == "float64":  # emg
             frame[key] = np.array(
                 values[key.removeprefix(f"{prefix}.emg.")]
             )  # checkthis
@@ -516,7 +516,7 @@ def dataset_to_policy_features(features: dict[str, dict]) -> dict[str, PolicyFea
             # Backward compatibility for "channel" which is an error introduced in LeRobotDataset v2.0 for ported datasets.
             if names[2] in ["channel", "channels"]:  # (h, w, c) -> (c, h, w)
                 shape = (shape[2], shape[0], shape[1])
-        elif ft["dtype"] == "int64":  # checkthis
+        elif key.startswith("observation.emg"):  # checkthis
             type = FeatureType.EMG
         elif key == "observation.environment_state":
             type = FeatureType.ENV
