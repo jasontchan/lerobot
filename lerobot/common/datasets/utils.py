@@ -479,8 +479,8 @@ def build_dataset_frame(
             continue
         elif key.startswith(f"{prefix}.emg."):
             frame[key] = np.array(
-                values[key.removeprefix(f"{prefix}.emg.")]
-            )  # checkthis
+                values[key.removeprefix(f"{prefix}.emg.")], dtype=np.float32
+            )
         elif ft["dtype"] == "float32" and len(ft["shape"]) == 1:
             frame[key] = np.array(
                 [values[name] for name in ft["names"]], dtype=np.float32
