@@ -461,7 +461,7 @@ def hw_to_dataset_features(
 
     for key, shape in emg_fts.items():
         features[f"{prefix}.emg.{key}"] = {
-            "dtype": "float64",
+            "dtype": "float32",
             "shape": shape,
             "names": ["channels"],  # checkthis
         }
@@ -477,17 +477,16 @@ def build_dataset_frame(
     for key, ft in ds_features.items():
         if key in DEFAULT_FEATURES or not key.startswith(prefix):
             continue
+        elif key.startswith(f"{prefix}.emg."):
+            frame[key] = np.array(
+                values[key.removeprefix(f"{prefix}.emg.")]
+            )  # checkthis
         elif ft["dtype"] == "float32" and len(ft["shape"]) == 1:
             frame[key] = np.array(
                 [values[name] for name in ft["names"]], dtype=np.float32
             )
         elif ft["dtype"] in ["image", "video"]:
             frame[key] = values[key.removeprefix(f"{prefix}.images.")]
-        elif ft["dtype"] == "float64":  # emg
-            frame[key] = np.array(
-                values[key.removeprefix(f"{prefix}.emg.")]
-            )  # checkthis
-
     return frame
 
 

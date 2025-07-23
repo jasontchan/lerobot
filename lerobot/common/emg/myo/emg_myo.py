@@ -9,7 +9,7 @@ from .configuration_myo import MyoEMGConfig
 from ..configs import EMGConfig
 import time
 
-MODE = emg_mode.RAW
+MODE = emg_mode.PREPROCESSED
 
 
 class EMGMyo(EMG):
