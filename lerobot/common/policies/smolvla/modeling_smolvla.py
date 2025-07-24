@@ -427,7 +427,7 @@ class SmolVLAPolicy(PreTrainedPolicy):
                     batch[k] = torch.stack(list(self._queues[k]), dim=1)
             images, img_masks = self.prepare_images(batch)
             state = self.prepare_state(batch)
-            emg = self.prepare_emg(batch)
+            emg = self.prepare_emg(batch) if self.config.emg_features else None
             lang_tokens, lang_masks = self.prepare_language(batch)
 
             actions = self.model.sample_actions(
@@ -609,7 +609,8 @@ class SmolVLAPolicy(PreTrainedPolicy):
         emgs = torch.tensor([], dtype=torch.float32, device=device)
         present_emg_keys = [key for key in self.config.emg_features if key in batch]
         for key in present_emg_keys:
-            emgs = torch.cat((emgs, batch[key][:, -1, :]), dim=1)
+            append_emg = batch[key][:, -1, :] if batch[key].ndim > 2 else batch[key]
+            emgs = torch.cat((emgs, append_emg), dim=1)
         emgs = pad_vector(
             emgs, self.config.max_state_dim
         )  # use the same max len as state
@@ -833,17 +834,20 @@ class VLAFlowMatching(nn.Module):
         state_mask = torch.ones(bsize, states_seq_len, dtype=torch.bool, device=device)
         pad_masks.append(state_mask)
 
-        emg_emb = self.emg_proj(emg)
-        emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
-        embs.append(emg_emb)
-        bsize_emg = emg_emb.shape[0]
-        device_emg = emg_emb.device
+        if emg:
+            emg_emb = self.emg_proj(emg)
+            emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
+            embs.append(emg_emb)
+            bsize_emg = emg_emb.shape[0]
+            device_emg = emg_emb.device
 
-        emg_seq_len = emg_emb.shape[1]
-        emg_mask = torch.ones(
-            bsize_emg, emg_seq_len, dtype=torch.bool, device=device_emg
-        )
-        pad_masks.append(emg_mask)
+            emg_seq_len = emg_emb.shape[1]
+            emg_mask = torch.ones(
+                bsize_emg, emg_seq_len, dtype=torch.bool, device=device_emg
+            )
+            pad_masks.append(emg_mask)
+        else:
+            emg_seq_len = 0
 
         # Set attention masks so that image and language inputs do not attend to state or emg or actions
         att_masks += [1] * (states_seq_len + emg_seq_len)
