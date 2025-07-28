@@ -35,6 +35,21 @@ class RobotConfig(draccus.ChoiceRegistry, abc.ABC):
                             f"Specifying '{attr}' is required for the camera to be used in a robot"
                         )
 
+        if hasattr(self, "emg") and self.emg:
+            for _, config in self.emg.items():
+                if config.sampling_rate is None:
+                    raise ValueError(
+                        "`sampling_rate` must be provided for EMG configuration."
+                    )
+                if config.channels is None:
+                    raise ValueError(
+                        "`channels` must be provided for EMG configuration."
+                    )
+                if config.position is None:
+                    raise ValueError(
+                        "`position` must be provided for EMG configuration."
+                    )
+
     @property
     def type(self) -> str:
         return self.get_choice_name(self.__class__)

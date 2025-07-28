@@ -111,6 +111,7 @@ class OpenCVCamera(Camera):
         self.fps = config.fps
         self.color_mode = config.color_mode
         self.warmup_s = config.warmup_s
+        self.split = config.split
 
         self.videocapture: cv2.VideoCapture | None = None
 
@@ -229,6 +230,7 @@ class OpenCVCamera(Camera):
 
         success = self.videocapture.set(cv2.CAP_PROP_FPS, float(self.fps))
         actual_fps = self.videocapture.get(cv2.CAP_PROP_FPS)
+        print(f"actual fps: {actual_fps}")
         # Use math.isclose for robust float comparison
         if not success or not math.isclose(self.fps, actual_fps, rel_tol=1e-3):
             raise RuntimeError(f"{self} failed to set fps={self.fps} ({actual_fps=}).")
@@ -244,6 +246,8 @@ class OpenCVCamera(Camera):
         )
 
         actual_width = int(round(self.videocapture.get(cv2.CAP_PROP_FRAME_WIDTH)))
+        if self.split:
+            actual_width //= 2
         if not width_success or self.capture_width != actual_width:
             raise RuntimeError(
                 f"{self} failed to set capture_width={self.capture_width} ({actual_width=}, {width_success=})."
@@ -339,7 +343,9 @@ class OpenCVCamera(Camera):
         read_duration_ms = (time.perf_counter() - start_time) * 1e3
         logger.debug(f"{self} read took: {read_duration_ms:.1f}ms")
 
-        return processed_frame
+        return (
+            processed_frame if not self.split else processed_frame[:, : self.width, :]
+        )
 
     def _postprocess_image(
         self, image: np.ndarray, color_mode: ColorMode | None = None
@@ -368,6 +374,8 @@ class OpenCVCamera(Camera):
             )
 
         h, w, c = image.shape
+        if self.split:
+            w //= 2
 
         if h != self.capture_height or w != self.capture_width:
             raise RuntimeError(
@@ -480,7 +488,7 @@ class OpenCVCamera(Camera):
                 f"Internal error: Event set but no frame available for {self}."
             )
 
-        return frame
+        return frame if not self.split else frame[:, : self.width, :]
 
     def disconnect(self):
         """

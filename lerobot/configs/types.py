@@ -24,6 +24,7 @@ class FeatureType(str, Enum):
     ENV = "ENV"
     ACTION = "ACTION"
     REWARD = "REWARD"
+    EMG = "EMG"
 
 
 class NormalizationMode(str, Enum):

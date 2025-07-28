@@ -649,6 +649,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         return hf_dataset
 
     def create_hf_dataset(self) -> datasets.Dataset:
+        print("self.features before get_hf_features_from_features:", self.features)
         features = get_hf_features_from_features(self.features)
         ft_dict = {col: [] for col in features}
         hf_dataset = datasets.Dataset.from_dict(

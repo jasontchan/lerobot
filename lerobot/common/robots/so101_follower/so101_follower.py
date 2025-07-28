@@ -20,6 +20,7 @@ from functools import cached_property
 from typing import Any
 
 from lerobot.common.cameras.utils import make_cameras_from_configs
+from lerobot.common.emg.utils import make_emg_streams_from_configs
 from lerobot.common.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 from lerobot.common.motors import Motor, MotorCalibration, MotorNormMode
 from lerobot.common.motors.feetech import (
@@ -45,7 +46,11 @@ class SO101Follower(Robot):
     def __init__(self, config: SO101FollowerConfig):
         super().__init__(config)
         self.config = config
-        norm_mode_body = MotorNormMode.DEGREES if config.use_degrees else MotorNormMode.RANGE_M100_100
+        norm_mode_body = (
+            MotorNormMode.DEGREES
+            if config.use_degrees
+            else MotorNormMode.RANGE_M100_100
+        )
         self.bus = FeetechMotorsBus(
             port=self.config.port,
             motors={
@@ -59,6 +64,7 @@ class SO101Follower(Robot):
             calibration=self.calibration,
         )
         self.cameras = make_cameras_from_configs(config.cameras)
+        self.emgs = make_emg_streams_from_configs(config.emgs)
 
     @property
     def _motors_ft(self) -> dict[str, type]:
@@ -67,12 +73,21 @@ class SO101Follower(Robot):
     @property
     def _cameras_ft(self) -> dict[str, tuple]:
         return {
-            cam: (self.config.cameras[cam].height, self.config.cameras[cam].width, 3) for cam in self.cameras
+            cam: (self.config.cameras[cam].height, self.config.cameras[cam].width, 3)
+            for cam in self.cameras
         }
+
+    @property
+    def _emgs_ft(self) -> dict[str, tuple]:
+        return {emg: (self.config.emgs[emg].channels,) for emg in self.emgs}
 
     @cached_property
     def observation_features(self) -> dict[str, type | tuple]:
-        return {**self._motors_ft, **self._cameras_ft}
+        print(
+            "Observation features:",
+            {**self._motors_ft, **self._cameras_ft, **self._emgs_ft},
+        )
+        return {**self._motors_ft, **self._cameras_ft, **self._emgs_ft}
 
     @cached_property
     def action_features(self) -> dict[str, type]:
@@ -80,7 +95,11 @@ class SO101Follower(Robot):
 
     @property
     def is_connected(self) -> bool:
-        return self.bus.is_connected and all(cam.is_connected for cam in self.cameras.values())
+        return (
+            self.bus.is_connected
+            and all(cam.is_connected for cam in self.cameras.values())
+            and all(emg.is_connected for emg in self.emgs.values())
+        )
 
     def connect(self, calibrate: bool = True) -> None:
         """
@@ -96,6 +115,9 @@ class SO101Follower(Robot):
 
         for cam in self.cameras.values():
             cam.connect()
+
+        for emg in self.emgs.values():
+            emg.connect()
 
         self.configure()
         logger.info(f"{self} connected.")
@@ -146,7 +168,9 @@ class SO101Follower(Robot):
 
     def setup_motors(self) -> None:
         for motor in reversed(self.bus.motors):
-            input(f"Connect the controller board to the '{motor}' motor only and press enter.")
+            input(
+                f"Connect the controller board to the '{motor}' motor only and press enter."
+            )
             self.bus.setup_motor(motor)
             print(f"'{motor}' motor id set to {self.bus.motors[motor].id}")
 
@@ -168,6 +192,12 @@ class SO101Follower(Robot):
             dt_ms = (time.perf_counter() - start) * 1e3
             logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
 
+        for emg_key, emg in self.emgs.items():
+            start = time.perf_counter()
+            obs_dict[emg_key] = emg.read()
+            dt_ms = (time.perf_counter() - start) * 1e3
+            logger.debug(f"{self} read {emg_key}: {dt_ms:.1f}ms")
+
         return obs_dict
 
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
@@ -186,14 +216,22 @@ class SO101Follower(Robot):
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
-        goal_pos = {key.removesuffix(".pos"): val for key, val in action.items() if key.endswith(".pos")}
+        goal_pos = {
+            key.removesuffix(".pos"): val
+            for key, val in action.items()
+            if key.endswith(".pos")
+        }
 
         # Cap goal position when too far away from present position.
         # /!\ Slower fps expected due to reading from the follower.
         if self.config.max_relative_target is not None:
             present_pos = self.bus.sync_read("Present_Position")
-            goal_present_pos = {key: (g_pos, present_pos[key]) for key, g_pos in goal_pos.items()}
-            goal_pos = ensure_safe_goal_position(goal_present_pos, self.config.max_relative_target)
+            goal_present_pos = {
+                key: (g_pos, present_pos[key]) for key, g_pos in goal_pos.items()
+            }
+            goal_pos = ensure_safe_goal_position(
+                goal_present_pos, self.config.max_relative_target
+            )
 
         # Send goal position to the arm
         self.bus.sync_write("Goal_Position", goal_pos)
@@ -206,5 +244,8 @@ class SO101Follower(Robot):
         self.bus.disconnect(self.config.disable_torque_on_disconnect)
         for cam in self.cameras.values():
             cam.disconnect()
+
+        for emg in self.emgs.values():
+            emg.disconnect()
 
         logger.info(f"{self} disconnected.")
