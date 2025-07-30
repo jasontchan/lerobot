@@ -69,11 +69,6 @@ class TrainPipelineConfig(HubMixin):
     def __post_init__(self):
         self.checkpoint_path = None
 
-        if not self.use_emg:
-            if self.env.features:
-                print(f"ENV FEATURES: {self.env.features}")
-                raise KeyboardInterrupt
-
     def validate(self):
         # HACK: We parse again the cli args here to get the pretrained paths if there was some.
         policy_path = parser.get_path_arg("policy")

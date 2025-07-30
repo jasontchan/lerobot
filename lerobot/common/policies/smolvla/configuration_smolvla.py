@@ -60,6 +60,9 @@ class SmolVLAConfig(PreTrainedConfig):
     # Tokenizer
     tokenizer_max_length: int = 48
 
+    # EMG Mask
+    emg_mask_prob: float = 0.0  # Probability of masking out EMG values during training.
+
     # Decoding
     num_steps: int = 10
 

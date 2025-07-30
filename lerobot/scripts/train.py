@@ -126,6 +126,20 @@ def train(cfg: TrainPipelineConfig):
 
     logging.info("Creating dataset")
     dataset = make_dataset(cfg)
+    print(f"dataset.meta.info[features]: {dataset.meta.info['features']}")
+    if not cfg.use_emg:
+        pop_keys = []
+        for key in dataset.meta.info['features']:
+            if key.startswith("observation.emg"):
+                pop_keys.append(key)
+
+        for key in pop_keys:
+            dataset.meta.info['features'].pop(key)
+        if dataset.hf_dataset.features is not None:
+            for key in pop_keys:
+                print(f"popping key: {key}")
+                dataset.hf_dataset.features.pop(key)
+    print(f"dataset.meta.info[features] after popping: {dataset.meta.info['features']}")
 
     # Create environment used for evaluating checkpoints during training on simulation data.
     # On real-world data, no need to create an environment as evaluations are done outside train.py,

@@ -460,7 +460,7 @@ class SmolVLAPolicy(PreTrainedPolicy):
         batch = self.normalize_targets(batch)
         images, img_masks = self.prepare_images(batch)
         state = self.prepare_state(batch)
-        emg = self.prepare_emg(batch)
+        emg = self.prepare_emg(batch) if self.config.emg_features else None
         lang_tokens, lang_masks = self.prepare_language(batch)
         actions = self.prepare_action(batch)
         actions_is_pad = batch.get("actions_id_pad")
@@ -603,7 +603,7 @@ class SmolVLAPolicy(PreTrainedPolicy):
         actions = pad_vector(batch[ACTION], self.config.max_action_dim)
         return actions
 
-    def prepare_emg(self, batch):
+    def prepare_emg(self, batch, mask_p=0.0):
         """Pad EMG"""
         device = batch[OBS_STATE].device
         emgs = torch.tensor([], dtype=torch.float32, device=device)
@@ -614,6 +614,14 @@ class SmolVLAPolicy(PreTrainedPolicy):
         emgs = pad_vector(
             emgs, self.config.max_state_dim
         )  # use the same max len as state
+
+        # # generate masks
+        # if mask_p:
+        #     #generate a mask w
+        #     mask = torch.rand(emgs.shape[0], emgs.shape[1], device=device) < mask_p
+        #     print(f"EMG mask: {mask}")
+        #     raise KeyboardInterrupt
+
         return emgs
 
 
@@ -835,7 +843,6 @@ class VLAFlowMatching(nn.Module):
         pad_masks.append(state_mask)
 
         if emg is not None:
-            print("using emg", emg)
             emg_emb = self.emg_proj(emg)
             emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
             embs.append(emg_emb)
