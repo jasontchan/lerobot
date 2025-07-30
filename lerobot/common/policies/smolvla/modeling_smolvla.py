@@ -834,7 +834,8 @@ class VLAFlowMatching(nn.Module):
         state_mask = torch.ones(bsize, states_seq_len, dtype=torch.bool, device=device)
         pad_masks.append(state_mask)
 
-        if emg:
+        if emg is not None:
+            print("using emg", emg)
             emg_emb = self.emg_proj(emg)
             emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
             embs.append(emg_emb)
