@@ -14,6 +14,7 @@ class EMG(abc.ABC):
         self.channels = config.channels
         self.position = config.position
         self.connected = False
+        self.window_length = config.window_length
 
     @property
     @abc.abstractmethod

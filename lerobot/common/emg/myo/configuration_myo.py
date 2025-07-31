@@ -9,6 +9,7 @@ class MyoEMGConfig(EMGConfig):
     tty: str | None = None
     mac: str | None = None
     position: str | None = None
+    window_length: int = 100
 
     def __post_init__(self):
         if self.tty is None:

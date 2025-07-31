@@ -79,7 +79,10 @@ class SO101Follower(Robot):
 
     @property
     def _emgs_ft(self) -> dict[str, tuple]:
-        return {emg: (self.config.emgs[emg].channels,) for emg in self.emgs}
+        return {
+            emg: (self.config.emgs[emg].window_length, self.config.emgs[emg].channels)
+            for emg in self.emgs
+        }
 
     @cached_property
     def observation_features(self) -> dict[str, type | tuple]:
