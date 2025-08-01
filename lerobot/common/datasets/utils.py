@@ -394,9 +394,7 @@ def get_hf_features_from_features(features: dict) -> datasets.Features:
             hf_features[key] = datasets.Image()
         elif ft["shape"] == (1,):
             hf_features[key] = datasets.Value(dtype=ft["dtype"])
-        elif (
-            len(ft["shape"]) == 1
-        ):  # checkthis see idk if my emg will be satisfied here and do whats right
+        elif len(ft["shape"]) == 1:
             hf_features[key] = datasets.Sequence(
                 length=ft["shape"][0], feature=datasets.Value(dtype=ft["dtype"])
             )
@@ -435,7 +433,8 @@ def hw_to_dataset_features(
     emg_fts = {
         key: shape
         for key, shape in hw_features.items()
-        if isinstance(shape, tuple) and len(shape) == 1
+        if isinstance(shape, tuple)
+        and len(shape) == 2  # shape is (window_length, channels)
     }
 
     if joint_fts and prefix == "action":
@@ -463,7 +462,7 @@ def hw_to_dataset_features(
         features[f"{prefix}.emg.{key}"] = {
             "dtype": "float32",
             "shape": shape,
-            "names": ["channels"],  # checkthis
+            "names": ["time", "channels"],
         }
 
     _validate_feature_names(features)
@@ -515,7 +514,7 @@ def dataset_to_policy_features(features: dict[str, dict]) -> dict[str, PolicyFea
             # Backward compatibility for "channel" which is an error introduced in LeRobotDataset v2.0 for ported datasets.
             if names[2] in ["channel", "channels"]:  # (h, w, c) -> (c, h, w)
                 shape = (shape[2], shape[0], shape[1])
-        elif key.startswith("observation.emg"):  # checkthis
+        elif key.startswith("observation.emg"):
             type = FeatureType.EMG
         elif key == "observation.environment_state":
             type = FeatureType.ENV

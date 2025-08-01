@@ -1,5 +1,7 @@
 import threading
 import queue
+
+import numpy as np
 from ..emg import EMG
 import sys
 
@@ -9,7 +11,28 @@ from .configuration_myo import MyoEMGConfig
 from ..configs import EMGConfig
 import time
 
-MODE = emg_mode.PREPROCESSED
+MODE = emg_mode.RAW
+
+
+class ContextCacher:
+    """Cache the end of input data and prepend the next input data with it.
+
+    Args:
+        window_length (int): how big the sliding window is. built-in stride of chunk's shape at dim 0.
+        important note: the way its used right now, stride MUST be 1 to be interpreted correctly.
+    """
+
+    def __init__(self, window_length: int):
+        self.window_length = window_length
+        self.curr_window = np.zeros(
+            (window_length, 8), dtype=np.float32
+        )  # for 8 channels of EMG data
+
+    def __call__(self, chunk: np.array):
+        self.curr_window = np.concatenate((self.curr_window[chunk.shape[0] :], chunk))
+        assert chunk.shape[0] == 1
+        assert self.curr_window.shape[0] == self.window_length
+        return self.curr_window
 
 
 class EMGMyo(EMG):
@@ -24,7 +47,9 @@ class EMGMyo(EMG):
         self.mac = list(map(int, config.mac.split(":")))
         self.tty = config.tty
         self.position = config.position
-        self.curr_values = None  # type: tuple[int, ...] | None
+        self.window_length = config.window_length
+        self.cacher = ContextCacher(self.window_length)
+        self.curr_values = None
 
     def connection_worker(self):
         """Connect to the Myo armband.
@@ -39,7 +64,9 @@ class EMGMyo(EMG):
         def add_to_queue(emg, movement):
             # curr_time = (time.time(),)
             # emg = emg + curr_time
-            self.curr_values = emg
+            self.curr_values = self.cacher(
+                np.expand_dims(np.array(emg, dtype=np.float32), axis=0)
+            )
 
         m.add_emg_handler(add_to_queue)
 
@@ -67,11 +94,7 @@ class EMGMyo(EMG):
 
     def read(self):
         """Read a single EMG data frame."""
-        return (
-            self.curr_values
-            if self.curr_values is not None
-            else (0, 0, 0, 0, 0, 0, 0, 0, time.time())
-        )  # this is problematic because time.time() is not the same as the time in the worker thread, but it is a placeholder to avoid errors.
+        return self.curr_values
 
     def __del__(self):
         print("Disconnecting")
