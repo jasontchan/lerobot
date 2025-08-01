@@ -159,6 +159,19 @@ def make_policy(
 
     cfg.output_features = {key: ft for key, ft in features.items() if ft.type is FeatureType.ACTION}
     cfg.input_features = {key: ft for key, ft in features.items() if key not in cfg.output_features}
+
+     
+    #validate cameras
+    remove_cams = []
+    for cam, use in cfg.use_camera_keys.items():
+        if not use:
+            remove_cams.append(cam)
+    
+    for cam in remove_cams:
+        if cam in cfg.input_features.keys():
+            cfg.input_features.pop(cam)
+            print(f"Removed camera {cam} from input features.")
+            
     kwargs["config"] = cfg
 
     if cfg.pretrained_path:

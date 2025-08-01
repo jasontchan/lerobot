@@ -63,6 +63,12 @@ class PreTrainedConfig(draccus.ChoiceRegistry, HubMixin, abc.ABC):
     # `use_amp` determines whether to use Automatic Mixed Precision (AMP) for training and evaluation. With AMP,
     # automatic gradient scaling is used.
     use_amp: bool = False
+    emg_mask_prob: float = 0.0  # Probability of masking out EMG values during training.
+
+    # The following fields are used for options regarding training with cameras and EMG
+
+    emg_spectrogram: bool = True # Whether to transform EMG data into a spectrogram.
+    use_camera_keys: dict[str, bool] = field(default_factory=dict)
 
     def __post_init__(self):
         self.pretrained_path = None

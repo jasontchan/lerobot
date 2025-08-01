@@ -530,7 +530,6 @@ def dataset_to_policy_features(features: dict[str, dict]) -> dict[str, PolicyFea
             type=type,
             shape=shape,
         )
-
     return policy_features
 
 
