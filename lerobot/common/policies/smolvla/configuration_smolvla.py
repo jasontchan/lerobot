@@ -63,12 +63,14 @@ class SmolVLAConfig(PreTrainedConfig):
     # EMG Mask
     emg_mask_prob: float = 0.0  # Probability of masking out EMG values during training.
     emg_spectrogram: bool = True  # Whether to transform EMG data into a spectrogram.
-    use_camera_keys: dict[str, bool] = field( # Which cameras to use during training and inference.
-        default_factory=lambda: {
-            "observation.image": True,
-            "observation.image2": True,
-            "observation.image3": True,
-        }
+    use_camera_keys: dict[str, bool] = (
+        field(  # Which cameras to use during training and inference.
+            default_factory=lambda: {
+                "observation.image": True,
+                "observation.image2": True,
+                "observation.image3": True,
+            }
+        )
     )
 
     # Decoding
@@ -93,7 +95,7 @@ class SmolVLAConfig(PreTrainedConfig):
     scheduler_decay_steps: int = 30_000
     scheduler_decay_lr: float = 2.5e-6
 
-    emg_mask_prob: float = field(default=0.0, metadata={"help": "Unused placeholder"})
+    # emg_mask_prob: float = field(default=0.0, metadata={"help": "Unused placeholder"})
 
     vlm_model_name: str = (
         "HuggingFaceTB/SmolVLM2-500M-Video-Instruct"  # Select the VLM backbone.
