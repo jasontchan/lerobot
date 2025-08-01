@@ -160,7 +160,7 @@ def load_smolvla(
 
     # HACK(aliberts): to not overwrite normalization parameters as they should come from the dataset
     norm_keys = ("normalize_inputs", "normalize_targets", "unnormalize_outputs")
-    ignore_missing = ("model.emg_proj",)
+    ignore_missing = ("model.emg_proj", "model.emg_cnn")
     state_dict = {k: v for k, v in state_dict.items() if not k.startswith(norm_keys)}
     # print(f"state dict: {list(state_dict.keys())}")
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
@@ -724,6 +724,25 @@ class VLAFlowMatching(nn.Module):
             self.vlm_with_expert.expert_hidden_size,
             self.vlm_with_expert.expert_hidden_size,
         )
+        self.emg_cnn = nn.Sequential(
+            nn.Conv2d(
+                in_channels=list(self.config.emg_features.values())[0].shape[-1],
+                out_channels=32,
+                kernel_size=3,
+                padding=1,
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(
+                in_channels=32,
+                out_channels=64,
+                kernel_size=3,
+            ),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((1, 1)), #maybe change this idk
+            nn.Flatten(),
+            nn.Linear(64, self.vlm_with_expert.config.text_config.hidden_size),
+        )
 
         self.set_requires_grad()
         self.fake_image_token = (
@@ -852,19 +871,20 @@ class VLAFlowMatching(nn.Module):
 
         if emg is not None:
             if self.config.emg_spectrogram:
-                pass
+                emg_emb = self.emg_cnn(emg)
+                emg_emb = emg_emb[:, None, :]
             else:
                 emg_emb = self.emg_proj(emg)
                 emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
-                embs.append(emg_emb)
-                bsize_emg = emg_emb.shape[0]
-                device_emg = emg_emb.device
+            embs.append(emg_emb)
+            bsize_emg = emg_emb.shape[0]
+            device_emg = emg_emb.device
 
-                emg_seq_len = emg_emb.shape[1]
-                emg_mask = torch.ones(
-                    bsize_emg, emg_seq_len, dtype=torch.bool, device=device_emg
-                )
-                pad_masks.append(emg_mask)
+            emg_seq_len = emg_emb.shape[1]
+            emg_mask = torch.ones(
+                bsize_emg, emg_seq_len, dtype=torch.bool, device=device_emg
+            )
+            pad_masks.append(emg_mask)
         else:
             emg_seq_len = 0
 
