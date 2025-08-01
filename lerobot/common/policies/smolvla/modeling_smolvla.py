@@ -611,14 +611,30 @@ class SmolVLAPolicy(PreTrainedPolicy):
         present_emg_keys = [key for key in self.config.emg_features if key in batch]
         if self.config.emg_spectrogram:
             for key in present_emg_keys:
-                emg_window = batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key] # (B, T, C)
-                emg_window = emg_window.reshape(emg_window.shape[0], emg_window.shape[-1], -1) # (B, C, T)
-                transform = torchaudio.transforms.Spectrogram(n_fft=64, win_length=64, hop_length=16).to(device=device, dtype=torch.float32)
-                emgs = torch.stack([transform(emg_window[:, ch, :]) for ch in range(emg_window.shape[1])], dim=1) # (B, C, F, T)
+                emg_window = (
+                    batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key]
+                )  # (B, T, C)
+                emg_window = emg_window.reshape(
+                    emg_window.shape[0], emg_window.shape[-1], -1
+                )  # (B, C, T)
+                transform = torchaudio.transforms.Spectrogram(
+                    n_fft=64, win_length=64, hop_length=16
+                ).to(device=device, dtype=torch.float32)
+                for ch in range(emg_window.shape[1]):
+                    print(
+                        f"emg window input to transform: {emg_window[:, ch, :].shape}, {emg_window[:, ch, :]}"
+                    )
+                emgs = torch.stack(
+                    [
+                        transform(emg_window[:, ch, :])
+                        for ch in range(emg_window.shape[1])
+                    ],
+                    dim=1,
+                )  # (B, C, F, T)
         else:
             for key in present_emg_keys:
                 append_emg = batch[key][:, -1, :] if batch[key].ndim > 2 else batch[key]
-                append_emg = append_emg[:, -1, :] #just grab the last time step
+                append_emg = append_emg[:, -1, :]  # just grab the last time step
                 emgs = torch.cat((emgs, append_emg), dim=1)
             emgs = pad_vector(
                 emgs, self.config.max_state_dim
@@ -726,7 +742,11 @@ class VLAFlowMatching(nn.Module):
         )
         self.emg_cnn = nn.Sequential(
             nn.Conv2d(
-                in_channels=list(self.config.emg_features.values())[0].shape[-1],
+                in_channels=(
+                    list(self.config.emg_features.values())[0].shape[-1]
+                    if self.config.emg_features
+                    else 1
+                ),
                 out_channels=32,
                 kernel_size=3,
                 padding=1,
@@ -739,7 +759,7 @@ class VLAFlowMatching(nn.Module):
                 kernel_size=3,
             ),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1)), #maybe change this idk
+            nn.AdaptiveAvgPool2d((1, 1)),  # maybe change this idk
             nn.Flatten(),
             nn.Linear(64, self.vlm_with_expert.config.text_config.hidden_size),
         )
@@ -872,7 +892,7 @@ class VLAFlowMatching(nn.Module):
         if emg is not None:
             if self.config.emg_spectrogram:
                 emg_emb = self.emg_cnn(emg)
-                emg_emb = emg_emb[:, None, :]
+                emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
             else:
                 emg_emb = self.emg_proj(emg)
                 emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
