@@ -58,6 +58,7 @@ import re
 from collections import deque
 
 import safetensors
+import torchaudio
 import torch
 import torch.nn.functional as F  # noqa: N812
 from torch import Tensor, nn
@@ -608,12 +609,20 @@ class SmolVLAPolicy(PreTrainedPolicy):
         device = batch[OBS_STATE].device
         emgs = torch.tensor([], dtype=torch.float32, device=device)
         present_emg_keys = [key for key in self.config.emg_features if key in batch]
-        for key in present_emg_keys:
-            append_emg = batch[key][:, -1, :] if batch[key].ndim > 2 else batch[key]
-            emgs = torch.cat((emgs, append_emg), dim=1)
-        emgs = pad_vector(
-            emgs, self.config.max_state_dim
-        )  # use the same max len as state
+        if self.config.emg_spectrogram:
+            for key in present_emg_keys:
+                emg_window = batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key] # (B, T, C)
+                emg_window = emg_window.reshape(emg_window.shape[0], emg_window.shape[-1], -1) # (B, C, T)
+                transform = torchaudio.transforms.Spectrogram(n_fft=64, win_length=64, hop_length=16).to(device=device, dtype=torch.float32)
+                emgs = torch.stack([transform(emg_window[:, ch, :]) for ch in range(emg_window.shape[1])], dim=1) # (B, C, F, T)
+        else:
+            for key in present_emg_keys:
+                append_emg = batch[key][:, -1, :] if batch[key].ndim > 2 else batch[key]
+                append_emg = append_emg[:, -1, :] #just grab the last time step
+                emgs = torch.cat((emgs, append_emg), dim=1)
+            emgs = pad_vector(
+                emgs, self.config.max_state_dim
+            )  # use the same max len as state
 
         # # generate masks
         # if mask_p:
@@ -621,7 +630,6 @@ class SmolVLAPolicy(PreTrainedPolicy):
         #     mask = torch.rand(emgs.shape[0], emgs.shape[1], device=device) < mask_p
         #     print(f"EMG mask: {mask}")
         #     raise KeyboardInterrupt
-
         return emgs
 
 
@@ -843,17 +851,20 @@ class VLAFlowMatching(nn.Module):
         pad_masks.append(state_mask)
 
         if emg is not None:
-            emg_emb = self.emg_proj(emg)
-            emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
-            embs.append(emg_emb)
-            bsize_emg = emg_emb.shape[0]
-            device_emg = emg_emb.device
+            if self.config.emg_spectrogram:
+                pass
+            else:
+                emg_emb = self.emg_proj(emg)
+                emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
+                embs.append(emg_emb)
+                bsize_emg = emg_emb.shape[0]
+                device_emg = emg_emb.device
 
-            emg_seq_len = emg_emb.shape[1]
-            emg_mask = torch.ones(
-                bsize_emg, emg_seq_len, dtype=torch.bool, device=device_emg
-            )
-            pad_masks.append(emg_mask)
+                emg_seq_len = emg_emb.shape[1]
+                emg_mask = torch.ones(
+                    bsize_emg, emg_seq_len, dtype=torch.bool, device=device_emg
+                )
+                pad_masks.append(emg_mask)
         else:
             emg_seq_len = 0
 
