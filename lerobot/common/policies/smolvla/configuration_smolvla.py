@@ -82,6 +82,8 @@ class SmolVLAConfig(PreTrainedConfig):
     scheduler_decay_steps: int = 30_000
     scheduler_decay_lr: float = 2.5e-6
 
+    emg_mask_prob: float = field(default=0.0, metadata={"help": "Unused placeholder"})
+
     vlm_model_name: str = (
         "HuggingFaceTB/SmolVLM2-500M-Video-Instruct"  # Select the VLM backbone.
     )
