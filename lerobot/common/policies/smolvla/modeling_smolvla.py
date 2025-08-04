@@ -160,7 +160,7 @@ def load_smolvla(
 
     # HACK(aliberts): to not overwrite normalization parameters as they should come from the dataset
     norm_keys = ("normalize_inputs", "normalize_targets", "unnormalize_outputs")
-    ignore_missing = ("model.emg_proj", "model.emg_cnn")
+    ignore_missing = ("model.emg_proj", "model.emg_cnn", "model.cnn_proj")
     state_dict = {k: v for k, v in state_dict.items() if not k.startswith(norm_keys)}
     # print(f"state dict: {list(state_dict.keys())}")
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
@@ -620,10 +620,6 @@ class SmolVLAPolicy(PreTrainedPolicy):
                 transform = torchaudio.transforms.Spectrogram(
                     n_fft=64, win_length=64, hop_length=16
                 ).to(device=device, dtype=torch.float32)
-                for ch in range(emg_window.shape[1]):
-                    print(
-                        f"emg window input to transform: {emg_window[:, ch, :].shape}, {emg_window[:, ch, :]}"
-                    )
                 emgs = torch.stack(
                     [
                         transform(emg_window[:, ch, :])
@@ -752,17 +748,19 @@ class VLAFlowMatching(nn.Module):
                 padding=1,
             ),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(2, 1), #pool freq only, keep time
             nn.Conv2d(
                 in_channels=32,
                 out_channels=64,
                 kernel_size=3,
+                padding=1,
             ),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1)),  # maybe change this idk
-            nn.Flatten(),
-            nn.Linear(64, self.vlm_with_expert.config.text_config.hidden_size),
+            nn.AdaptiveAvgPool2d((1, 3)),  # 3 time steps back
+            # nn.Flatten(),
+            # nn.Linear(64, self.vlm_with_expert.config.text_config.hidden_size),
         )
+        self.cnn_proj = nn.Linear(64, self.vlm_with_expert.config.text_config.hidden_size)
 
         self.set_requires_grad()
         self.fake_image_token = (
@@ -892,6 +890,8 @@ class VLAFlowMatching(nn.Module):
         if emg is not None:
             if self.config.emg_spectrogram:
                 emg_emb = self.emg_cnn(emg)
+                emg_emb = emg_emb.squeeze(2).permute(0, 2, 1) #(B, out_time_steps, 64)
+                emg_emb = self.cnn_proj(emg_emb)  # (B, out_time_steps, hidden_size)
                 emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
             else:
                 emg_emb = self.emg_proj(emg)
