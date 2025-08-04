@@ -193,6 +193,11 @@ class LeRobotDatasetMetadata:
         ]
 
     @property
+    def emg_keys(self) -> list[str]:
+        """Keys to access EMG modalities."""
+        return [key for key, ft in self.features.items() if "emg" in key]
+
+    @property
     def names(self) -> dict[str, list | dict]:
         """Names of the various dimensions of vector modalities."""
         return {key: ft["names"] for key, ft in self.features.items()}
@@ -354,6 +359,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         root: str | Path | None = None,
         episodes: list[int] | None = None,
         image_transforms: Callable | None = None,
+        # emg_normalizer: object | None = None,
         delta_timestamps: dict[list[float]] | None = None,
         tolerance_s: float = 1e-4,
         revision: str | None = None,
@@ -466,6 +472,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         self.repo_id = repo_id
         self.root = Path(root) if root else HF_LEROBOT_HOME / repo_id
         self.image_transforms = image_transforms
+        # self.emg_normalizer = emg_normalizer
         self.delta_timestamps = delta_timestamps
         self.episodes = episodes
         self.tolerance_s = tolerance_s
@@ -788,6 +795,12 @@ class LeRobotDataset(torch.utils.data.Dataset):
             image_keys = self.meta.camera_keys
             for cam in image_keys:
                 item[cam] = self.image_transforms(item[cam])
+
+        # insert emg transforms
+        # if self.emg_normalizer is not None:
+        #     emg_keys = self.meta.emg_keys
+        #     for emg in emg_keys:
+        #         item[emg] = self.emg_normalizer(item[emg])  # should be (time, channels)
 
         # Add task as a string
         task_idx = item["task_index"].item()

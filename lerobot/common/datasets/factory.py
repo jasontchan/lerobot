@@ -24,6 +24,7 @@ from lerobot.common.datasets.lerobot_dataset import (
     MultiLeRobotDataset,
 )
 from lerobot.common.datasets.transforms import ImageTransforms
+from lerobot.common.datasets.transforms import RunningNormalizer
 from lerobot.configs.policies import PreTrainedConfig
 from lerobot.configs.train import TrainPipelineConfig
 
@@ -58,7 +59,9 @@ def resolve_delta_timestamps(
         if key == "action" and cfg.action_delta_indices is not None:
             delta_timestamps[key] = [i / ds_meta.fps for i in cfg.action_delta_indices]
         if key.startswith("observation.") and cfg.observation_delta_indices is not None:
-            delta_timestamps[key] = [i / ds_meta.fps for i in cfg.observation_delta_indices]
+            delta_timestamps[key] = [
+                i / ds_meta.fps for i in cfg.observation_delta_indices
+            ]
 
     if len(delta_timestamps) == 0:
         delta_timestamps = None
@@ -79,8 +82,14 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
         LeRobotDataset | MultiLeRobotDataset
     """
     image_transforms = (
-        ImageTransforms(cfg.dataset.image_transforms) if cfg.dataset.image_transforms.enable else None
+        ImageTransforms(cfg.dataset.image_transforms)
+        if cfg.dataset.image_transforms.enable
+        else None
     )
+
+    # emg_normalizer = (
+    #     RunningNormalizer(n_channels=8) if cfg.use_emg and cfg.normalize_emg else None
+    # )
 
     if isinstance(cfg.dataset.repo_id, str):
         ds_meta = LeRobotDatasetMetadata(
@@ -93,6 +102,7 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
             episodes=cfg.dataset.episodes,
             delta_timestamps=delta_timestamps,
             image_transforms=image_transforms,
+            # emg_normalizer=emg_normalizer,
             revision=cfg.dataset.revision,
             video_backend=cfg.dataset.video_backend,
         )
@@ -113,6 +123,8 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
     if cfg.dataset.use_imagenet_stats:
         for key in dataset.meta.camera_keys:
             for stats_type, stats in IMAGENET_STATS.items():
-                dataset.meta.stats[key][stats_type] = torch.tensor(stats, dtype=torch.float32)
+                dataset.meta.stats[key][stats_type] = torch.tensor(
+                    stats, dtype=torch.float32
+                )
 
     return dataset

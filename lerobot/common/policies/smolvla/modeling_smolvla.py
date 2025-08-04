@@ -57,6 +57,8 @@ import os
 import re
 from collections import deque
 
+from matplotlib import pyplot as plt
+import numpy as np
 import safetensors
 import torchaudio
 import torch
@@ -77,8 +79,24 @@ from lerobot.common.policies.utils import (
 )
 from lerobot.common.utils.utils import get_safe_dtype
 
+# import pyqtgraph as pg
+# from pyqtgraph.Qt import QtWidgets
+# from sklearn.manifold import TSNE
+
 # Matches ".soNNN", optionally followed by "-something", up to the "_buffer_" marker
 _VARIANT_RE = re.compile(r"\.so\d+(?:-[\w]+)?_buffer_")
+
+
+# app = QtWidgets.QApplication([])
+# win = pg.GraphicsLayoutWidget(show=True, title="Real-Time Spectrogram")
+# view = win.addViewBox()
+# view.setAspectLocked()
+# img = pg.ImageItem()
+# view.addItem(img)
+
+
+# def update_spectrogram(spec_tensor):
+#     img.setImage(spec_tensor, autoLevels=False)
 
 
 def canonicalise(k: str) -> str:
@@ -627,6 +645,14 @@ class SmolVLAPolicy(PreTrainedPolicy):
                     ],
                     dim=1,
                 )  # (B, C, F, T)
+                # spec_np = emgs[0, 0, :, :].detach().cpu().numpy()
+                # spec_norm = (
+                #     255
+                #     * (spec_np - spec_np.min())
+                #     / (spec_np.max() - spec_np.min() + 1e-6)
+                # ).astype(np.uint8)
+                # update_spectrogram(spec_norm)
+                # QtWidgets.QApplication.processEvents()
         else:
             for key in present_emg_keys:
                 append_emg = batch[key][:, -1, :] if batch[key].ndim > 2 else batch[key]
@@ -748,7 +774,7 @@ class VLAFlowMatching(nn.Module):
                 padding=1,
             ),
             nn.ReLU(),
-            nn.MaxPool2d(2, 1), #pool freq only, keep time
+            nn.MaxPool2d(2, 1),  # pool freq only, keep time TEMP: (2, 1)
             nn.Conv2d(
                 in_channels=32,
                 out_channels=64,
@@ -756,11 +782,15 @@ class VLAFlowMatching(nn.Module):
                 padding=1,
             ),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 3)),  # 3 time steps back
-            # nn.Flatten(),
-            # nn.Linear(64, self.vlm_with_expert.config.text_config.hidden_size),
+            nn.AdaptiveAvgPool2d((1, 3)),  # 3 time steps back #TEMP: 1, 3
+            # nn.Flatten(),  # TEMP: comment out
+            # nn.Linear(
+            #     64, self.vlm_with_expert.config.text_config.hidden_size
+            # ),  # TEMP: comment out
         )
-        self.cnn_proj = nn.Linear(64, self.vlm_with_expert.config.text_config.hidden_size)
+        self.cnn_proj = nn.Linear(
+            64, self.vlm_with_expert.config.text_config.hidden_size
+        )  # TEMP: include this
 
         self.set_requires_grad()
         self.fake_image_token = (
@@ -890,12 +920,15 @@ class VLAFlowMatching(nn.Module):
         if emg is not None:
             if self.config.emg_spectrogram:
                 emg_emb = self.emg_cnn(emg)
-                emg_emb = emg_emb.squeeze(2).permute(0, 2, 1) #(B, out_time_steps, 64)
-                emg_emb = self.cnn_proj(emg_emb)  # (B, out_time_steps, hidden_size)
-                emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
+                emg_emb = emg_emb.squeeze(2).permute(
+                    0, 2, 1
+                )  # (B, out_time_steps, 64) #FOR TEMP
+                emg_emb = self.cnn_proj(
+                    emg_emb
+                )  # (B, out_time_steps, hidden_size) #FOR TEMP
             else:
                 emg_emb = self.emg_proj(emg)
-                emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
+            emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
             embs.append(emg_emb)
             bsize_emg = emg_emb.shape[0]
             device_emg = emg_emb.device

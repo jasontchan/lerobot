@@ -53,6 +53,11 @@ def create_stats_buffers(
             assert c < h and c < w, f"{key} is not channel first ({shape=})"
             # override image shape to be invariant to height and width
             shape = (c, 1, 1)
+        elif ft.type is FeatureType.EMG:
+            assert len(shape) == 2, f"number of dimensions of {key} != 2 ({shape=})"
+            t, c = shape
+            assert c < t, f"{key} is not channel first ({shape=})"
+            shape = (c, 1)
 
         # Note: we initialize mean, std, min, max to infinity. They should be overwritten
         # downstream by `stats` or `policy.load_state_dict`, as expected. During forward,
@@ -82,25 +87,43 @@ def create_stats_buffers(
         if stats:
             if isinstance(stats[key]["mean"], np.ndarray):
                 if norm_mode is NormalizationMode.MEAN_STD:
-                    buffer["mean"].data = torch.from_numpy(stats[key]["mean"]).to(dtype=torch.float32)
-                    buffer["std"].data = torch.from_numpy(stats[key]["std"]).to(dtype=torch.float32)
+                    buffer["mean"].data = torch.from_numpy(stats[key]["mean"]).to(
+                        dtype=torch.float32
+                    )
+                    buffer["std"].data = torch.from_numpy(stats[key]["std"]).to(
+                        dtype=torch.float32
+                    )
                 elif norm_mode is NormalizationMode.MIN_MAX:
-                    buffer["min"].data = torch.from_numpy(stats[key]["min"]).to(dtype=torch.float32)
-                    buffer["max"].data = torch.from_numpy(stats[key]["max"]).to(dtype=torch.float32)
+                    buffer["min"].data = torch.from_numpy(stats[key]["min"]).to(
+                        dtype=torch.float32
+                    )
+                    buffer["max"].data = torch.from_numpy(stats[key]["max"]).to(
+                        dtype=torch.float32
+                    )
             elif isinstance(stats[key]["mean"], torch.Tensor):
                 # Note: The clone is needed to make sure that the logic in save_pretrained doesn't see duplicated
                 # tensors anywhere (for example, when we use the same stats for normalization and
                 # unnormalization). See the logic here
                 # https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L97.
                 if norm_mode is NormalizationMode.MEAN_STD:
-                    buffer["mean"].data = stats[key]["mean"].clone().to(dtype=torch.float32)
-                    buffer["std"].data = stats[key]["std"].clone().to(dtype=torch.float32)
+                    buffer["mean"].data = (
+                        stats[key]["mean"].clone().to(dtype=torch.float32)
+                    )
+                    buffer["std"].data = (
+                        stats[key]["std"].clone().to(dtype=torch.float32)
+                    )
                 elif norm_mode is NormalizationMode.MIN_MAX:
-                    buffer["min"].data = stats[key]["min"].clone().to(dtype=torch.float32)
-                    buffer["max"].data = stats[key]["max"].clone().to(dtype=torch.float32)
+                    buffer["min"].data = (
+                        stats[key]["min"].clone().to(dtype=torch.float32)
+                    )
+                    buffer["max"].data = (
+                        stats[key]["max"].clone().to(dtype=torch.float32)
+                    )
             else:
                 type_ = type(stats[key]["mean"])
-                raise ValueError(f"np.ndarray or torch.Tensor expected, but type is '{type_}' instead.")
+                raise ValueError(
+                    f"np.ndarray or torch.Tensor expected, but type is '{type_}' instead."
+                )
 
         stats_buffers[key] = buffer
     return stats_buffers
@@ -278,6 +301,10 @@ def _initialize_stats_buffers(
             # reduce spatial dimensions, keep channel dimension only
             c, *_ = shape
             shape = (c, 1, 1)
+        elif ft.type is FeatureType.EMG:
+            # reduce temporal dimension, keep channel dimension only
+            c, *_ = shape
+            shape = (c, 1)
 
         prefix = key.replace(".", "_")
 
@@ -296,7 +323,9 @@ def _initialize_stats_buffers(
                     mean = mean_data.clone().to(dtype=torch.float32)
                     std = std_data.clone().to(dtype=torch.float32)
                 else:
-                    raise ValueError(f"Unsupported stats type for key '{key}' (expected ndarray or Tensor).")
+                    raise ValueError(
+                        f"Unsupported stats type for key '{key}' (expected ndarray or Tensor)."
+                    )
 
             module.register_buffer(f"{prefix}_mean", mean)
             module.register_buffer(f"{prefix}_std", std)
@@ -313,7 +342,9 @@ def _initialize_stats_buffers(
                     min_val = min_data.clone().to(dtype=torch.float32)
                     max_val = max_data.clone().to(dtype=torch.float32)
                 else:
-                    raise ValueError(f"Unsupported stats type for key '{key}' (expected ndarray or Tensor).")
+                    raise ValueError(
+                        f"Unsupported stats type for key '{key}' (expected ndarray or Tensor)."
+                    )
 
             module.register_buffer(f"{prefix}_min", min_val)
             module.register_buffer(f"{prefix}_max", max_val)

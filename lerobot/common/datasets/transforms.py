@@ -23,6 +23,42 @@ from torchvision.transforms.v2 import Transform
 from torchvision.transforms.v2 import functional as F  # noqa: N812
 
 
+# class RunningNormalizer:
+#     """A running normalizer that computes the mean and variance of input data over time.
+#     Specifically, this is used to normalize EMG data."""
+
+#     def __init__(self, n_channels, momentum=0.01, eps=1e-6):
+#         self.n_channels = n_channels
+#         self.momentum = momentum
+#         self.eps = eps
+#         self.registered = False
+
+#     def _init_stats(self, x):
+#         mean = x.mean(dim=0)
+#         var = x.var(dim=0, unbiased=False)
+#         self.mean = mean.clone()
+#         self.var = var.clone()
+#         self.registered = True
+
+#     def update(self, x):
+#         # x shape: (time, channels)
+#         batch_mean = x.mean(dim=0)  # (channels,)
+#         batch_var = x.var(dim=0, unbiased=False)
+
+#         self.mean = (1 - self.momentum) * self.mean + self.momentum * batch_mean
+#         self.var = (1 - self.momentum) * self.var + self.momentum * batch_var
+
+#     def normalize(self, x):
+#         # normalize along channel dimension
+#         return (x - self.mean[None, :]) / (torch.sqrt(self.var[None, :]) + self.eps)
+
+#     def __call__(self, x):
+#         if not self.registered:
+#             self._init_stats(x)
+#         self.update(x)
+#         return self.normalize(x)
+
+
 class RandomSubsetApply(Transform):
     """Apply a random subset of N transformations from a list of transformations.
 
@@ -58,7 +94,9 @@ class RandomSubsetApply(Transform):
         elif not isinstance(n_subset, int):
             raise TypeError("n_subset should be an int or None")
         elif not (1 <= n_subset <= len(transforms)):
-            raise ValueError(f"n_subset should be in the interval [1, {len(transforms)}]")
+            raise ValueError(
+                f"n_subset should be in the interval [1, {len(transforms)}]"
+            )
 
         self.transforms = transforms
         total = sum(p)
@@ -119,26 +157,36 @@ class SharpnessJitter(Transform):
     def _check_input(self, sharpness):
         if isinstance(sharpness, (int, float)):
             if sharpness < 0:
-                raise ValueError("If sharpness is a single number, it must be non negative.")
+                raise ValueError(
+                    "If sharpness is a single number, it must be non negative."
+                )
             sharpness = [1.0 - sharpness, 1.0 + sharpness]
             sharpness[0] = max(sharpness[0], 0.0)
         elif isinstance(sharpness, collections.abc.Sequence) and len(sharpness) == 2:
             sharpness = [float(v) for v in sharpness]
         else:
-            raise TypeError(f"{sharpness=} should be a single number or a sequence with length 2.")
+            raise TypeError(
+                f"{sharpness=} should be a single number or a sequence with length 2."
+            )
 
         if not 0.0 <= sharpness[0] <= sharpness[1]:
-            raise ValueError(f"sharpness values should be between (0., inf), but got {sharpness}.")
+            raise ValueError(
+                f"sharpness values should be between (0., inf), but got {sharpness}."
+            )
 
         return float(sharpness[0]), float(sharpness[1])
 
     def make_params(self, flat_inputs: list[Any]) -> dict[str, Any]:
-        sharpness_factor = torch.empty(1).uniform_(self.sharpness[0], self.sharpness[1]).item()
+        sharpness_factor = (
+            torch.empty(1).uniform_(self.sharpness[0], self.sharpness[1]).item()
+        )
         return {"sharpness_factor": sharpness_factor}
 
     def transform(self, inpt: Any, params: dict[str, Any]) -> Any:
         sharpness_factor = params["sharpness_factor"]
-        return self._call_kernel(F.adjust_sharpness, inpt, sharpness_factor=sharpness_factor)
+        return self._call_kernel(
+            F.adjust_sharpness, inpt, sharpness_factor=sharpness_factor
+        )
 
 
 @dataclass
