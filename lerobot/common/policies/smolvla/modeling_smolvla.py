@@ -620,10 +620,6 @@ class SmolVLAPolicy(PreTrainedPolicy):
                 transform = torchaudio.transforms.Spectrogram(
                     n_fft=64, win_length=64, hop_length=16
                 ).to(device=device, dtype=torch.float32)
-                for ch in range(emg_window.shape[1]):
-                    print(
-                        f"emg window input to transform: {emg_window[:, ch, :].shape}, {emg_window[:, ch, :]}"
-                    )
                 emgs = torch.stack(
                     [
                         transform(emg_window[:, ch, :])
