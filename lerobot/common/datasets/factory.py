@@ -24,7 +24,6 @@ from lerobot.common.datasets.lerobot_dataset import (
     MultiLeRobotDataset,
 )
 from lerobot.common.datasets.transforms import ImageTransforms
-from lerobot.common.datasets.transforms import RunningNormalizer
 from lerobot.configs.policies import PreTrainedConfig
 from lerobot.configs.train import TrainPipelineConfig
 

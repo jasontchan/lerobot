@@ -135,6 +135,12 @@ class SmolVLAConfig(PreTrainedConfig):
 
     def __post_init__(self):
         super().__post_init__()
+        self.normalization_mapping = {
+            "VISUAL": NormalizationMode.IDENTITY,
+            "STATE": NormalizationMode.MEAN_STD,
+            "ACTION": NormalizationMode.MEAN_STD,
+            "EMG": NormalizationMode.MEAN_STD,
+        }
 
         """Input validation (not exhaustive)."""
         if self.n_action_steps > self.chunk_size:

@@ -57,8 +57,6 @@ import os
 import re
 from collections import deque
 
-from matplotlib import pyplot as plt
-import numpy as np
 import safetensors
 import torchaudio
 import torch
