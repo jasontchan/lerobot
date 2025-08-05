@@ -41,7 +41,8 @@ def create_stats_buffers(
         norm_mode = norm_map.get(ft.type, NormalizationMode.IDENTITY)
         if norm_mode is NormalizationMode.IDENTITY:
             continue
-
+        else:
+            print(f"Creating stats buffers for {key} with mode {norm_mode}")
         assert isinstance(norm_mode, NormalizationMode)
 
         shape = tuple(ft.shape)
