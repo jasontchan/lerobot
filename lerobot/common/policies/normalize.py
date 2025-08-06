@@ -58,7 +58,7 @@ def create_stats_buffers(
             assert len(shape) == 2, f"number of dimensions of {key} != 2 ({shape=})"
             t, c = shape
             assert c < t, f"{key} is not channel first ({shape=})"
-            shape = (c, 1)
+            shape = (1, c)
 
         # Note: we initialize mean, std, min, max to infinity. They should be overwritten
         # downstream by `stats` or `policy.load_state_dict`, as expected. During forward,
@@ -88,6 +88,12 @@ def create_stats_buffers(
         if stats:
             if isinstance(stats[key]["mean"], np.ndarray):
                 if norm_mode is NormalizationMode.MEAN_STD:
+                    # if ft.type is FeatureType.EMG and stats[key]["mean"].shape == (
+                    #     1,
+                    #     shape[0],
+                    # ):
+                    #     stats[key]["mean"] = stats[key]["mean"].T
+                    #     stats[key]["std"] = stats[key]["std"].T
                     buffer["mean"].data = torch.from_numpy(stats[key]["mean"]).to(
                         dtype=torch.float32
                     )

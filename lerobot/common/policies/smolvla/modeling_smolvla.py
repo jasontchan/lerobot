@@ -56,6 +56,7 @@ import math
 import os
 import re
 from collections import deque
+import time
 
 import safetensors
 import torchaudio
@@ -77,9 +78,11 @@ from lerobot.common.policies.utils import (
 )
 from lerobot.common.utils.utils import get_safe_dtype
 
-# import pyqtgraph as pg
-# from pyqtgraph.Qt import QtWidgets
-# from sklearn.manifold import TSNE
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtWidgets
+from sklearn.manifold import TSNE
+import numpy as np
+import threading
 
 # Matches ".soNNN", optionally followed by "-something", up to the "_buffer_" marker
 _VARIANT_RE = re.compile(r"\.so\d+(?:-[\w]+)?_buffer_")
@@ -87,14 +90,28 @@ _VARIANT_RE = re.compile(r"\.so\d+(?:-[\w]+)?_buffer_")
 
 # app = QtWidgets.QApplication([])
 # win = pg.GraphicsLayoutWidget(show=True, title="Real-Time Spectrogram")
-# view = win.addViewBox()
-# view.setAspectLocked()
-# img = pg.ImageItem()
-# view.addItem(img)
+# img_items = []
+# for i in range(8):
+#     row, col = divmod(i, 4)
+#     p = win.addPlot(row=row, col=col)
+#     img = pg.ImageItem()
+#     p.addItem(img)
+#     p.setTitle(f"EMG Channel {i+1}")
+#     img_items.append(img)
 
 
-# def update_spectrogram(spec_tensor):
-#     img.setImage(spec_tensor, autoLevels=False)
+# def update_spectrogram(specs):
+
+#     for ch in range(8):
+#         spec_np = specs[ch]
+#         spec_np = np.log1p(spec_np)
+#         # Optionally normalize for display
+#         # spec_norm = (
+#         #     255 * (spec_np - spec_np.min()) / (spec_np.max() - spec_np.min() + 1e-6)
+#         # ).astype(np.uint8)
+#         # print(f"spec_norm shape: {spec_norm.shape}")
+#         img_items[ch].setImage(spec_np, autoLevels=False)
+#     QtWidgets.QApplication.processEvents()
 
 
 def canonicalise(k: str) -> str:
@@ -167,7 +184,6 @@ def load_smolvla(
     checkpoint_keys_mapping: str = "",
 ) -> torch.nn.Module:
     state_dict = safetensors.torch.load_file(filename, device=device)
-
     # Optional user-supplied renames (e.g. "model._orig_mod.//model.")
     if checkpoint_keys_mapping and "//" in checkpoint_keys_mapping:
         state_dict = rename_checkpoint_keys(state_dict, checkpoint_keys_mapping)
@@ -633,9 +649,19 @@ class SmolVLAPolicy(PreTrainedPolicy):
                 emg_window = emg_window.reshape(
                     emg_window.shape[0], emg_window.shape[-1], -1
                 )  # (B, C, T)
-                transform = torchaudio.transforms.Spectrogram(
-                    n_fft=64, win_length=64, hop_length=16
+                transform = nn.Sequential(
+                    torchaudio.transforms.MelSpectrogram(
+                        sample_rate=200,
+                        n_fft=self.config.n_fft,
+                        win_length=self.config.n_fft,
+                        hop_length=16,
+                        n_mels=32,
+                    ),
+                    torchaudio.transforms.AmplitudeToDB(stype="power"),
                 ).to(device=device, dtype=torch.float32)
+                # transform = torchaudio.transforms.Spectrogram(
+                #     n_fft=64, win_length=64, hop_length=16
+                # ).to(device=device, dtype=torch.float32)
                 emgs = torch.stack(
                     [
                         transform(emg_window[:, ch, :])
@@ -643,14 +669,9 @@ class SmolVLAPolicy(PreTrainedPolicy):
                     ],
                     dim=1,
                 )  # (B, C, F, T)
-                # spec_np = emgs[0, 0, :, :].detach().cpu().numpy()
-                # spec_norm = (
-                #     255
-                #     * (spec_np - spec_np.min())
-                #     / (spec_np.max() - spec_np.min() + 1e-6)
-                # ).astype(np.uint8)
-                # update_spectrogram(spec_norm)
-                # QtWidgets.QApplication.processEvents()
+
+                # spec_np = emgs[0].detach().cpu().numpy()
+                # update_spectrogram(spec_np)
         else:
             for key in present_emg_keys:
                 append_emg = batch[key][:, -1, :] if batch[key].ndim > 2 else batch[key]

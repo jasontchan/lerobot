@@ -67,7 +67,8 @@ class PreTrainedConfig(draccus.ChoiceRegistry, HubMixin, abc.ABC):
 
     # The following fields are used for options regarding training with cameras and EMG
 
-    emg_spectrogram: bool = True # Whether to transform EMG data into a spectrogram.
+    emg_spectrogram: bool = False  # Whether to transform EMG data into a spectrogram.
+    n_fft: int = 64  # Number of FFT bins for EMG spectrogram.
     use_camera_keys: dict[str, bool] = field(default_factory=dict)
 
     def __post_init__(self):
