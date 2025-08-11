@@ -65,6 +65,7 @@ class SmolVLAConfig(PreTrainedConfig):
     emg_mask_prob: float = 0.0  # Probability of masking out EMG values during training.
     emg_spectrogram: bool = False  # Whether to transform EMG data into a spectrogram.
     n_fft: int = 64
+    emg_window_size: int = 1
     use_camera_keys: dict[str, bool] = (
         field(  # Which cameras to use during training and inference.
             default_factory=lambda: {

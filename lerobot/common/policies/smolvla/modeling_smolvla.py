@@ -88,30 +88,30 @@ import threading
 _VARIANT_RE = re.compile(r"\.so\d+(?:-[\w]+)?_buffer_")
 
 
-# app = QtWidgets.QApplication([])
-# win = pg.GraphicsLayoutWidget(show=True, title="Real-Time Spectrogram")
-# img_items = []
-# for i in range(8):
-#     row, col = divmod(i, 4)
-#     p = win.addPlot(row=row, col=col)
-#     img = pg.ImageItem()
-#     p.addItem(img)
-#     p.setTitle(f"EMG Channel {i+1}")
-#     img_items.append(img)
+app = QtWidgets.QApplication([])
+win = pg.GraphicsLayoutWidget(show=True, title="Real-Time Spectrogram")
+img_items = []
+for i in range(8):
+    row, col = divmod(i, 4)
+    p = win.addPlot(row=row, col=col)
+    img = pg.ImageItem()
+    p.addItem(img)
+    p.setTitle(f"EMG Channel {i+1}")
+    img_items.append(img)
 
 
-# def update_spectrogram(specs):
+def update_spectrogram(specs):
 
-#     for ch in range(8):
-#         spec_np = specs[ch]
-#         spec_np = np.log1p(spec_np)
-#         # Optionally normalize for display
-#         # spec_norm = (
-#         #     255 * (spec_np - spec_np.min()) / (spec_np.max() - spec_np.min() + 1e-6)
-#         # ).astype(np.uint8)
-#         # print(f"spec_norm shape: {spec_norm.shape}")
-#         img_items[ch].setImage(spec_np, autoLevels=False)
-#     QtWidgets.QApplication.processEvents()
+    for ch in range(8):
+        spec_np = specs[ch].astype(np.uint8)
+        # spec_np = np.log1p(spec_np)
+        # Optionally normalize for display
+        # spec_norm = (
+        #     255 * (spec_np - spec_np.min()) / (spec_np.max() - spec_np.min() + 1e-6)
+        # ).astype(np.uint8)
+        # print(f"spec_norm shape: {spec_norm.shape}")
+        img_items[ch].setImage(spec_np, autoLevels=False)
+    QtWidgets.QApplication.processEvents()
 
 
 def canonicalise(k: str) -> str:
@@ -641,52 +641,59 @@ class SmolVLAPolicy(PreTrainedPolicy):
         device = batch[OBS_STATE].device
         emgs = torch.tensor([], dtype=torch.float32, device=device)
         present_emg_keys = [key for key in self.config.emg_features if key in batch]
-        if self.config.emg_spectrogram:
-            for key in present_emg_keys:
-                emg_window = (
-                    batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key]
-                )  # (B, T, C)
-                emg_window = emg_window.reshape(
-                    emg_window.shape[0], emg_window.shape[-1], -1
-                )  # (B, C, T)
-                transform = nn.Sequential(
-                    torchaudio.transforms.MelSpectrogram(
-                        sample_rate=200,
-                        n_fft=self.config.n_fft,
-                        win_length=self.config.n_fft,
-                        hop_length=16,
-                        n_mels=32,
-                    ),
-                    torchaudio.transforms.AmplitudeToDB(stype="power"),
-                ).to(device=device, dtype=torch.float32)
-                # transform = torchaudio.transforms.Spectrogram(
-                #     n_fft=64, win_length=64, hop_length=16
-                # ).to(device=device, dtype=torch.float32)
-                emgs = torch.stack(
-                    [
-                        transform(emg_window[:, ch, :])
-                        for ch in range(emg_window.shape[1])
-                    ],
-                    dim=1,
-                )  # (B, C, F, T)
 
-                # spec_np = emgs[0].detach().cpu().numpy()
-                # update_spectrogram(spec_np)
+        if self.config.emg_window_size > 1:
+            if self.config.emg_spectrogram:  # Raw EMG
+                for key in present_emg_keys:
+                    emg_window = (
+                        batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key]
+                    )  # (B, T, C)
+                    emg_window = emg_window.reshape(
+                        emg_window.shape[0], emg_window.shape[-1], -1
+                    )  # (B, C, T)
+                    transform = nn.Sequential(
+                        torchaudio.transforms.MelSpectrogram(
+                            sample_rate=200,
+                            n_fft=self.config.n_fft,
+                            win_length=self.config.n_fft,
+                            hop_length=16,
+                            n_mels=32,
+                        ),
+                        torchaudio.transforms.AmplitudeToDB(stype="power"),
+                    ).to(device=device, dtype=torch.float32)
+                    # transform = torchaudio.transforms.Spectrogram(
+                    #     n_fft=64, win_length=64, hop_length=16
+                    # ).to(device=device, dtype=torch.float32)
+                    emgs = torch.stack(
+                        [
+                            transform(emg_window[:, ch, :])
+                            for ch in range(emg_window.shape[1])
+                        ],
+                        dim=1,
+                    )  # (B, C, F, T)
+
+                    spec_np = emgs[0].detach().cpu().numpy()
+                    update_spectrogram(spec_np)
+            else:  # Preprocessed EMG
+                for key in present_emg_keys:
+                    append_emg = (
+                        batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key]
+                    )
+                    append_emg = append_emg[
+                        :, -self.config.emg_window_size, :
+                    ]  # grab the last `emg_window_size` time steps
+                    emgs = torch.cat((emgs, append_emg), dim=1)
+                print(f"EMG shape: {emgs.shape}")
+                raise KeyboardInterrupt
         else:
             for key in present_emg_keys:
-                append_emg = batch[key][:, -1, :] if batch[key].ndim > 2 else batch[key]
+                append_emg = batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key]
                 append_emg = append_emg[:, -1, :]  # just grab the last time step
                 emgs = torch.cat((emgs, append_emg), dim=1)
             emgs = pad_vector(
                 emgs, self.config.max_state_dim
             )  # use the same max len as state
 
-        # # generate masks
-        # if mask_p:
-        #     #generate a mask w
-        #     mask = torch.rand(emgs.shape[0], emgs.shape[1], device=device) < mask_p
-        #     print(f"EMG mask: {mask}")
-        #     raise KeyboardInterrupt
         return emgs
 
 

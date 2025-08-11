@@ -36,7 +36,6 @@ def create_stats_buffers(
             `nn.Parameters` set to `requires_grad=False`, suitable to not be updated during backpropagation.
     """
     stats_buffers = {}
-
     for key, ft in features.items():
         norm_mode = norm_map.get(ft.type, NormalizationMode.IDENTITY)
         if norm_mode is NormalizationMode.IDENTITY:
@@ -58,7 +57,7 @@ def create_stats_buffers(
             assert len(shape) == 2, f"number of dimensions of {key} != 2 ({shape=})"
             t, c = shape
             assert c < t, f"{key} is not channel first ({shape=})"
-            shape = (1, c)
+            shape = (1, 1, c)
 
         # Note: we initialize mean, std, min, max to infinity. They should be overwritten
         # downstream by `stats` or `policy.load_state_dict`, as expected. During forward,
