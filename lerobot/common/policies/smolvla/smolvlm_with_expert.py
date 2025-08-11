@@ -184,7 +184,7 @@ class SmolVLMWithExpertModel(nn.Module):
             self.get_vlm_model()
             .vision_model(
                 pixel_values=image.to(dtype=self.get_vlm_model().vision_model.dtype),
-                patch_attention_mask=patch_attention_mask,
+                patch_attention_mask=patch_attention_mask
             )
             .last_hidden_state
         )
