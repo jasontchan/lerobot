@@ -78,11 +78,12 @@ from lerobot.common.policies.utils import (
 )
 from lerobot.common.utils.utils import get_safe_dtype
 
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtWidgets
-from sklearn.manifold import TSNE
+# import pyqtgraph as pg
+# from pyqtgraph.Qt import QtWidgets
+# from sklearn.manifold import TSNE
 import numpy as np
-import threading
+
+# import threading
 
 # Matches ".soNNN", optionally followed by "-something", up to the "_buffer_" marker
 _VARIANT_RE = re.compile(r"\.so\d+(?:-[\w]+)?_buffer_")
@@ -687,7 +688,9 @@ class SmolVLAPolicy(PreTrainedPolicy):
                 raise KeyboardInterrupt
         else:
             for key in present_emg_keys:
-                append_emg = batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key]
+                append_emg = (
+                    batch[key][:, -1, :, :] if batch[key].ndim > 3 else batch[key]
+                )
                 append_emg = append_emg[:, -1, :]  # just grab the last time step
                 emgs = torch.cat((emgs, append_emg), dim=1)
             emgs = pad_vector(

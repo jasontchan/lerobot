@@ -35,7 +35,7 @@ class SmolVLAConfig(PreTrainedConfig):
             "VISUAL": NormalizationMode.IDENTITY,
             "STATE": NormalizationMode.MEAN_STD,
             "ACTION": NormalizationMode.MEAN_STD,
-            "EMG": NormalizationMode.MEAN_STD,
+            # "EMG": NormalizationMode.MEAN_STD,
         }
     )
 
@@ -141,7 +141,7 @@ class SmolVLAConfig(PreTrainedConfig):
             "VISUAL": NormalizationMode.IDENTITY,
             "STATE": NormalizationMode.MEAN_STD,
             "ACTION": NormalizationMode.MEAN_STD,
-            "EMG": NormalizationMode.MEAN_STD,
+            # "EMG": NormalizationMode.MEAN_STD,
         }
 
         """Input validation (not exhaustive)."""
