@@ -78,11 +78,11 @@ from lerobot.common.policies.utils import (
 )
 from lerobot.common.utils.utils import get_safe_dtype
 
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtWidgets
-from sklearn.manifold import TSNE
+# import pyqtgraph as pg
+# from pyqtgraph.Qt import QtWidgets
+# from sklearn.manifold import TSNE
 import numpy as np
-import threading
+# import threading
 
 # Matches ".soNNN", optionally followed by "-something", up to the "_buffer_" marker
 _VARIANT_RE = re.compile(r"\.so\d+(?:-[\w]+)?_buffer_")
@@ -644,7 +644,7 @@ class SmolVLAPolicy(PreTrainedPolicy):
         if self.config.emg_spectrogram:
             for key in present_emg_keys:
                 emg_window = (
-                    batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key]
+                    batch[key][:, -1, :, :] if batch[key].ndim > 3 else batch[key] #check this bc ndim is 4
                 )  # (B, T, C)
                 emg_window = emg_window.reshape(
                     emg_window.shape[0], emg_window.shape[-1], -1
@@ -674,7 +674,7 @@ class SmolVLAPolicy(PreTrainedPolicy):
                 # update_spectrogram(spec_np)
         else:
             for key in present_emg_keys:
-                append_emg = batch[key][:, -1, :] if batch[key].ndim > 2 else batch[key]
+                append_emg = batch[key][:, -1, :, :] if batch[key].ndim > 3 else batch[key]
                 append_emg = append_emg[:, -1, :]  # just grab the last time step
                 emgs = torch.cat((emgs, append_emg), dim=1)
             emgs = pad_vector(
