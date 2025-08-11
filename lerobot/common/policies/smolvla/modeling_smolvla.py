@@ -89,30 +89,30 @@ import numpy as np
 _VARIANT_RE = re.compile(r"\.so\d+(?:-[\w]+)?_buffer_")
 
 
-app = QtWidgets.QApplication([])
-win = pg.GraphicsLayoutWidget(show=True, title="Real-Time Spectrogram")
-img_items = []
-for i in range(8):
-    row, col = divmod(i, 4)
-    p = win.addPlot(row=row, col=col)
-    img = pg.ImageItem()
-    p.addItem(img)
-    p.setTitle(f"EMG Channel {i+1}")
-    img_items.append(img)
+# app = QtWidgets.QApplication([])
+# win = pg.GraphicsLayoutWidget(show=True, title="Real-Time Spectrogram")
+# img_items = []
+# for i in range(8):
+#     row, col = divmod(i, 4)
+#     p = win.addPlot(row=row, col=col)
+#     img = pg.ImageItem()
+#     p.addItem(img)
+#     p.setTitle(f"EMG Channel {i+1}")
+#     img_items.append(img)
 
 
-def update_spectrogram(specs):
+# def update_spectrogram(specs):
 
-    for ch in range(8):
-        spec_np = specs[ch].astype(np.uint8)
-        # spec_np = np.log1p(spec_np)
-        # Optionally normalize for display
-        # spec_norm = (
-        #     255 * (spec_np - spec_np.min()) / (spec_np.max() - spec_np.min() + 1e-6)
-        # ).astype(np.uint8)
-        # print(f"spec_norm shape: {spec_norm.shape}")
-        img_items[ch].setImage(spec_np, autoLevels=False)
-    QtWidgets.QApplication.processEvents()
+#     for ch in range(8):
+#         spec_np = specs[ch].astype(np.uint8)
+#         # spec_np = np.log1p(spec_np)
+#         # Optionally normalize for display
+#         # spec_norm = (
+#         #     255 * (spec_np - spec_np.min()) / (spec_np.max() - spec_np.min() + 1e-6)
+#         # ).astype(np.uint8)
+#         # print(f"spec_norm shape: {spec_norm.shape}")
+#         img_items[ch].setImage(spec_np, autoLevels=False)
+#     QtWidgets.QApplication.processEvents()
 
 
 def canonicalise(k: str) -> str:
@@ -673,8 +673,8 @@ class SmolVLAPolicy(PreTrainedPolicy):
                         dim=1,
                     )  # (B, C, F, T)
 
-                    spec_np = emgs[0].detach().cpu().numpy()
-                    update_spectrogram(spec_np)
+                    # spec_np = emgs[0].detach().cpu().numpy()
+                    # update_spectrogram(spec_np)
             else:  # Preprocessed EMG
                 for key in present_emg_keys:
                     append_emg = (
