@@ -193,7 +193,7 @@ def load_smolvla(
 
     # HACK(aliberts): to not overwrite normalization parameters as they should come from the dataset
     norm_keys = ("normalize_inputs", "normalize_targets", "unnormalize_outputs")
-    ignore_missing = ("model.emg_proj", "model.emg_cnn", "model.cnn_proj")
+    ignore_missing = ("model.emg_proj", "model.emg_cnn", "model.cnn_proj", "model.emg_bin_proj", "model.emg_gate")
     state_dict = {k: v for k, v in state_dict.items() if not k.startswith(norm_keys)}
     # print(f"state dict: {list(state_dict.keys())}")
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
@@ -678,14 +678,21 @@ class SmolVLAPolicy(PreTrainedPolicy):
             else:  # Preprocessed EMG
                 for key in present_emg_keys:
                     append_emg = (
-                        batch[key][:, -1, :] if batch[key].ndim > 3 else batch[key]
+                        batch[key][:, -1, :, :] if batch[key].ndim > 3 else batch[key]
                     )
                     append_emg = append_emg[
-                        :, -self.config.emg_window_size, :
+                        :, :-self.config.emg_window_size, :
                     ]  # grab the last `emg_window_size` time steps
-                    emgs = torch.cat((emgs, append_emg), dim=1)
-                print(f"EMG shape: {emgs.shape}")
-                raise KeyboardInterrupt
+                    emgs = torch.cat((emgs, append_emg), dim=1).to(device=device, dtype=torch.float32)
+                if self.config.emg_n_bins:
+                    bin_size = self.config.emg_window_size // self.config.emg_n_bins
+                    #split emgs into bins of size `emg_bin_size`
+                    emgs = torch.stack(torch.split(emgs, bin_size, dim=1), dim=1).to(
+                        device=device, dtype=torch.float32)
+                    emgs = torch.mean(emgs, 2, False).to(device=device, dtype=torch.float32)
+                else: # use CNN
+                    raise NotImplementedError
+
         else:
             for key in present_emg_keys:
                 append_emg = (
@@ -776,6 +783,12 @@ class VLAFlowMatching(nn.Module):
             self.vlm_with_expert.config.text_config.hidden_size,
             dtype=torch.float32,
         )
+        self.emg_bin_proj = nn.Linear(
+            8,  # 8 EMG channels
+            self.vlm_with_expert.config.text_config.hidden_size,
+            dtype=torch.float32,
+        )
+        self.emg_gate = nn.Parameter(torch.tensor(self.config.emg_gate, dtype=torch.float32))
         self.action_in_proj = nn.Linear(
             self.config.max_action_dim, self.vlm_with_expert.expert_hidden_size
         )
@@ -955,8 +968,9 @@ class VLAFlowMatching(nn.Module):
                 emg_emb = self.cnn_proj(
                     emg_emb
                 )  # (B, out_time_steps, hidden_size) #FOR TEMP
-            else:
-                emg_emb = self.emg_proj(emg)
+            else: # preprocessed EMG
+                emg_emb = self.emg_proj(emg) if self.config.emg_window_size == 1 else self.emg_bin_proj(emg)
+                emg_emb = emg_emb * self.emg_gate if self.config.emg_gate else emg_emb  # Apply gate to EMG embeddings
             emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
             embs.append(emg_emb)
             bsize_emg = emg_emb.shape[0]
