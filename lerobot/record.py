@@ -322,6 +322,22 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
         for emg in robot.emgs.values():
             while not emg.is_connected():
                 time.sleep(0.1)
+        # EMG calibration
+        import csv
+        start_time = time.time()
+        emg_data = []
+        logging.info("Starting EMG calibration...")
+        while time.time() - start_time < 15:
+            for emg in robot.emgs.values():
+                emg_data.append(emg.read())
+        try:
+            with open('emg_calibration.csv', 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerows(emg_data)
+            logging.info("EMG calibration data saved to 'emg_calibration.csv'.")
+        except Exception as e:
+            logging.error(f"Failed to save EMG calibration data: {e}")
+
 
     if teleop is not None:
         teleop.connect()
