@@ -82,6 +82,7 @@ from lerobot.common.utils.utils import get_safe_dtype
 # from pyqtgraph.Qt import QtWidgets
 # from sklearn.manifold import TSNE
 import numpy as np
+import pandas as pd
 
 # import threading
 
@@ -193,7 +194,7 @@ def load_smolvla(
 
     # HACK(aliberts): to not overwrite normalization parameters as they should come from the dataset
     norm_keys = ("normalize_inputs", "normalize_targets", "unnormalize_outputs")
-    ignore_missing = ("model.emg_proj", "model.emg_cnn", "model.cnn_proj", "model.emg_bin_proj", "model.emg_gate")
+    ignore_missing = ("model.emg_proj", "model.emg_cnn", "model.cnn_proj", "model.emg_bin_proj", "model.emg_gate", "model.emg_ln")
     state_dict = {k: v for k, v in state_dict.items() if not k.startswith(norm_keys)}
     # print(f"state dict: {list(state_dict.keys())}")
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
@@ -404,6 +405,12 @@ class SmolVLAPolicy(PreTrainedPolicy):
         self.language_tokenizer = AutoProcessor.from_pretrained(
             self.config.vlm_model_name
         ).tokenizer
+
+        # df = pd.read_csv('emg_calibration.csv').values
+        # df = df - np.median(df, axis=0, keepdims=True)
+        # amp_t = np.sqrt((df**2).mean(axis=1))
+        self.emg_p95 = 1300.00
+
         self.model = VLAFlowMatching(config)
         self.reset()
 
@@ -687,11 +694,26 @@ class SmolVLAPolicy(PreTrainedPolicy):
                 if self.config.emg_n_bins:
                     bin_size = self.config.emg_window_size // self.config.emg_n_bins
                     #split emgs into bins of size `emg_bin_size`
-                    emgs = torch.stack(torch.split(emgs, bin_size, dim=1), dim=1).to(
+                    emg_bins = torch.stack(torch.split(emgs, bin_size, dim=1), dim=1).to(
                         device=device, dtype=torch.float32)
-                    emgs = torch.mean(emgs, 2, False).to(device=device, dtype=torch.float32)
+                    emg_bins = torch.mean(emg_bins, 2, False).to(device=device, dtype=torch.float32) # (B, K, C)
 
-                    #add slope direction
+                    #amplitude (how strong the EMG signal is)
+                    amplitude = emg_bins.pow(2).mean(dim=-1, keepdim=True).sqrt() # (B, K, 1)
+                    amplitude = (amplitude / (self.emg_p95 + 1e-6)).clamp(0, 1.5) # normalize by 95th percentile
+
+                    #spatial encoding (how the EMG signal is distributed across channels)
+                    spatial_emg = emg_bins / (amplitude + 1e-6) # (B, K, C)
+                    
+                    #temporal encoding (how the EMG signal is distributed across time)
+                    temporal_emg = F.pad(
+                        emg_bins[:, 1:, :] - emg_bins[:, :-1, :], (0, 0, 1, 0, 0, 0)
+                    ) #(B, K, C)
+                    temporal_emg = temporal_emg / (temporal_emg.norm(dim=-1, keepdim=True) + 1e-6) # (B, K, C)
+
+                    emgs = torch.cat(
+                        [spatial_emg, temporal_emg, amplitude], dim=-1
+                    ) # (B, K, 2C+1)
 
                 else: # use CNN
                     raise NotImplementedError
@@ -787,11 +809,12 @@ class VLAFlowMatching(nn.Module):
             dtype=torch.float32,
         )
         self.emg_bin_proj = nn.Linear(
-            8,  # 8 EMG channels
+            17,  # 8 EMG channels
             self.vlm_with_expert.config.text_config.hidden_size,
             dtype=torch.float32,
         )
         self.emg_gate = nn.Parameter(torch.tensor(self.config.emg_gate, dtype=torch.float32))
+        self.emg_ln = nn.LayerNorm(16, elementwise_affine=True)
         self.action_in_proj = nn.Linear(
             self.config.max_action_dim, self.vlm_with_expert.expert_hidden_size
         )
@@ -972,6 +995,7 @@ class VLAFlowMatching(nn.Module):
                     emg_emb
                 )  # (B, out_time_steps, hidden_size) #FOR TEMP
             else: # preprocessed EMG
+                emg = torch.cat((self.emg_ln(emg[:, :, :-1]), emg[:, :, -1:].contiguous()), dim=-1) # (B, K, C+1)
                 emg_emb = self.emg_proj(emg) if self.config.emg_window_size == 1 else self.emg_bin_proj(emg)
                 emg_emb = emg_emb * self.emg_gate if self.config.emg_gate else emg_emb  # Apply gate to EMG embeddings
             emg_emb = emg_emb[:, None, :] if emg_emb.ndim == 2 else emg_emb
