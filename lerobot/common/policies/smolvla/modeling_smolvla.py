@@ -681,7 +681,7 @@ class SmolVLAPolicy(PreTrainedPolicy):
                         batch[key][:, -1, :, :] if batch[key].ndim > 3 else batch[key]
                     )
                     append_emg = append_emg[
-                        :, :-self.config.emg_window_size, :
+                        :, -self.config.emg_window_size:, :
                     ]  # grab the last `emg_window_size` time steps
                     emgs = torch.cat((emgs, append_emg), dim=1).to(device=device, dtype=torch.float32)
                 if self.config.emg_n_bins:
@@ -690,6 +690,9 @@ class SmolVLAPolicy(PreTrainedPolicy):
                     emgs = torch.stack(torch.split(emgs, bin_size, dim=1), dim=1).to(
                         device=device, dtype=torch.float32)
                     emgs = torch.mean(emgs, 2, False).to(device=device, dtype=torch.float32)
+
+                    #add slope direction
+
                 else: # use CNN
                     raise NotImplementedError
 

@@ -72,6 +72,7 @@ class PreTrainedConfig(draccus.ChoiceRegistry, HubMixin, abc.ABC):
     emg_window_size: int = 1
     emg_n_bins: int = 0  # bin size (also tells us if we use CNN for EMG processing).
     emg_gate: float = 0.0  # Gate for EMG embeddings.
+    emg_shift: int = 0 # Shift for EMG window
     use_camera_keys: dict[str, bool] = field(default_factory=dict)
 
     def __post_init__(self):
