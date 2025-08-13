@@ -94,7 +94,11 @@ class EMGMyo(EMG):
 
     def read(self):
         """Read a single EMG data frame."""
-        return self.curr_values
+        return (
+            self.curr_values
+            if self.curr_values is not None
+            else np.zeros((self.window_length, 8), dtype=np.float32)
+        )
 
     def __del__(self):
         print("Disconnecting")
