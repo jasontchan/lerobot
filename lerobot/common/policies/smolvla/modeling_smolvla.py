@@ -409,7 +409,7 @@ class SmolVLAPolicy(PreTrainedPolicy):
         # df = pd.read_csv('emg_calibration.csv').values
         # df = df - np.median(df, axis=0, keepdims=True)
         # amp_t = np.sqrt((df**2).mean(axis=1))
-        self.emg_p95 = 1300.00
+        self.emg_p95 = 700.00
 
         self.model = VLAFlowMatching(config)
         self.reset()
